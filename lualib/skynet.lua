@@ -13,7 +13,7 @@ local traceback = debug.traceback
 local profile = require "skynet.profile"
 
 local cresume = profile.resume
-local running_thread = nil
+local running_thread = nil					-- 记录当前被唤醒的协程
 local init_thread = nil
 
 local function coroutine_resume(co, ...)
@@ -108,10 +108,12 @@ end
 local coroutine_pool = setmetatable({}, { __mode = "kv" })
 
 local function co_create(f)
-	local co = tremove(coroutine_pool)
+	local co = tremove(coroutine_pool)		-- 尾删除
 	if co == nil then
 		co = coroutine_create(function(...)
-			f(...)
+			f(...)		-- dispatch函数是个upvalue
+			-- f执行完，这个协程的使命就结束了
+			-- 后面的逻辑是为了复用协程，将其缓存以提高性能
 			while true do
 				local session = session_coroutine_id[co]
 				if session and session ~= 0 then
@@ -121,6 +123,7 @@ local function co_create(f)
 						skynet.address(session_coroutine_address[co]),
 						source.source, source.linedefined))
 				end
+				-- 清空协程相关信息
 				-- coroutine exit
 				local tag = session_coroutine_tracetag[co]
 				if tag ~= nil then
@@ -134,7 +137,7 @@ local function co_create(f)
 				end
 
 				-- recycle co into pool
-				f = nil
+				f = nil		-- 清空upvalue的f函数
 				coroutine_pool[#coroutine_pool+1] = co
 				-- recv new main function f
 				f = coroutine_yield "SUSPEND"
@@ -167,6 +170,7 @@ end
 -- suspend is local function
 function suspend(co, result, command)
 	if not result then
+		-- co_create保证协程始终有yield返回，不可能返回false
 		local session = session_coroutine_id[co]
 		if session then -- coroutine may fork by others (session is nil)
 			local addr = session_coroutine_address[co]
@@ -353,14 +357,23 @@ function skynet.setenv(key, value)
 	c.command("SETENV",key .. " " ..value)
 end
 
+--[[
+	消息内容都是通过 p.pack 序列化处理后发送出去的
+	对于同类服务，其序列化、反序列化接口可以保持一致
+	例如, [snlua xxx.lua服务] 向 [snlua xxx.lua服务] 发送消息
+--]]
 function skynet.send(addr, typename, ...)
 	local p = proto[typename]
-	return c.send(addr, p.id, 0 , p.pack(...))
+	return c.send(addr, p.id, 0, p.pack(...))
 end
 
+--[[
+	碰到 lua服务 向 C服务 发消息的情况，C服务的callback函数需要考虑反序列化显得很多余
+	所以这种情况建议用 skynet.rawsend
+]]
 function skynet.rawsend(addr, typename, msg, sz)
 	local p = proto[typename]
-	return c.send(addr, p.id, 0 , msg, sz)
+	return c.send(addr, p.id, 0, msg, sz)
 end
 
 skynet.genid = assert(c.genid)
@@ -394,7 +407,7 @@ function skynet.call(addr, typename, ...)
 	end
 
 	local p = proto[typename]
-	local session = c.send(addr, p.id , nil , p.pack(...))
+	local session = c.send(addr, p.id, nil, p.pack(...))
 	if session == nil then
 		error("call to invalid address " .. skynet.address(addr))
 	end
@@ -588,6 +601,7 @@ local function raw_dispatch_message(prototype, msg, sz, session, source)
 			return
 		end
 
+		-- 核心逻辑，根据prototype确定dispatch函数
 		local f = p.dispatch
 		if f then
 			local co = co_create(f)
@@ -610,7 +624,11 @@ local function raw_dispatch_message(prototype, msg, sz, session, source)
 					skynet.trace()
 				end
 			end
-			suspend(co, coroutine_resume(co, session,source, p.unpack(msg,sz)))
+			--[[
+				如果是新创建的协程，session，source等参数会传递给协程中的dispatch函数。也就是停在 f = coroutine_yield "SUSPEND"
+				如果是复用的协程，这里就是第2次执行了，会执行 f(coroutine_yield())
+			]]
+			suspend(co, coroutine_resume(co, session, source, p.unpack(msg,sz)))
 		else
 			trace_source[source] = nil
 			if session ~= 0 then
@@ -642,6 +660,10 @@ function skynet.dispatch_message(...)
 	assert(succ, tostring(err))
 end
 
+--[[
+	发消息给.launcher服务，这个服务最终会启动snlua服务，并将name传递给它的init
+	name 代表一个 ./service/?.lua文件，snlua会通过 ./lualib/loader.lua 加载它
+--]]
 function skynet.newservice(name, ...)
 	return skynet.call(".launcher", "lua" , "LAUNCH", "snlua", name, ...)
 end
@@ -690,7 +712,7 @@ do
 	local REG = skynet.register_protocol
 
 	REG {
-		name = "lua",
+		name = "lua",			-- lua协议，skynet.newservice 需要用到
 		id = skynet.PTYPE_LUA,
 		pack = skynet.pack,
 		unpack = skynet.unpack,
@@ -762,7 +784,7 @@ function skynet.init_service(start)
 end
 
 function skynet.start(start_func)
-	c.callback(skynet.dispatch_message)
+	c.callback(skynet.dispatch_message)		-- 接管消息处理
 	init_thread = skynet.timeout(0, function()
 		skynet.init_service(start_func)
 		init_thread = nil

@@ -1,6 +1,9 @@
 local skynet = require "skynet"
 local c = require "skynet.core"
 
+-- 这是个服务管理器，提供相关接口，向skynet内核发送命令
+
+-- 启动服务，返回句柄
 function skynet.launch(...)
 	local addr = c.command("LAUNCH", table.concat({...}," "))
 	if addr then
@@ -8,6 +11,7 @@ function skynet.launch(...)
 	end
 end
 
+-- 杀掉服务
 function skynet.kill(name)
 	if type(name) == "number" then
 		skynet.send(".launcher","lua","REMOVE",name, true)
@@ -16,10 +20,12 @@ function skynet.kill(name)
 	c.command("KILL",name)
 end
 
+-- 进程终止
 function skynet.abort()
 	c.command("ABORT")
 end
 
+-- 通知 .cslave 服务
 local function globalname(name, handle)
 	local c = string.sub(name,1,1)
 	assert(c ~= ':')
@@ -37,12 +43,14 @@ local function globalname(name, handle)
 	return true
 end
 
+-- 给自己这个服务取个别名
 function skynet.register(name)
 	if not globalname(name) then
 		c.command("REG", name)
 	end
 end
 
+-- 给别的服务取个别名
 function skynet.name(name, handle)
 	if not globalname(name, handle) then
 		c.command("NAME", name .. " " .. skynet.address(handle))

@@ -4,16 +4,19 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+/**
+ * 消息的结构
+*/
 struct skynet_message {
-	uint32_t source;
-	int session;
-	void * data;
-	size_t sz;
+	uint32_t source;		// 源：发送消息的服务句柄	      4
+	int session;			// 消息的唯一标识				 int
+	void * data;			// 数据							pointer
+	size_t sz;				// 数据大小						size_t
 };
 
 // type is encoding in skynet_message.sz high 8bit
-#define MESSAGE_TYPE_MASK (SIZE_MAX >> 8)
-#define MESSAGE_TYPE_SHIFT ((sizeof(size_t)-1) * 8)
+#define MESSAGE_TYPE_SHIFT ((sizeof(size_t)-1) * 8)			// 用size_t的最高位的字节表示消息类型（MESSAGE_TYPE）
+#define MESSAGE_TYPE_MASK (SIZE_MAX >> 8)					// 所以的消息最大尺寸少了8位
 
 struct message_queue;
 

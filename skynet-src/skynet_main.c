@@ -125,8 +125,8 @@ main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	skynet_globalinit();
-	skynet_env_init();
+	skynet_globalinit();			// 全局变量G_NODE，主线程key
+	skynet_env_init();				// 全局环境变量：config读取的值
 
 	sigign();
 
@@ -140,6 +140,13 @@ main(int argc, char *argv[]) {
 	struct lua_State *L = luaL_newstate();
 	luaL_openlibs(L);	// link lua lib
 
+	// 用一个lua虚拟机将config_file中的配置项读出来：
+	// luaL_newstate 创建解释器
+	// luaL_openlibs 初始化lua标准库，这样lua脚本中可以用到os/io/package
+	// luaL_loadbufferx 将字符串解释为Lua chunk（Closure）
+	// lua_pushstring 配置文件名作放入chunk匿名变长参数列表（脚本中用到local config_name = ...）
+	// lua_pcall 执行这个Closure
+	// lua_close 销毁这个解释器
 	int err =  luaL_loadbufferx(L, load_config, strlen(load_config), "=[skynet config]", "t");
 	assert(err == LUA_OK);
 	lua_pushstring(L, config_file);
@@ -150,8 +157,9 @@ main(int argc, char *argv[]) {
 		lua_close(L);
 		return 1;
 	}
-	_init_env(L);
+	_init_env(L);					// lua chunk的返回值是个table，遍历它的k-v，加载到环境列表中
 
+	// 从环境变量中读出相应值，并指定默认值
 	config.thread =  optint("thread",8);
 	config.module_path = optstring("cpath","./cservice/?.so");
 	config.harbor = optint("harbor", 1);

@@ -13,10 +13,10 @@ struct remote_name {
 };
 
 struct remote_message {
-	struct remote_name destination;
-	const void * message;
-	size_t sz;
-	int type;
+	struct remote_name destination;			// 16 + 4
+	const void * message;					// pointer
+	size_t sz;								// size_t
+	int type;								// int
 };
 
 void skynet_harbor_send(struct remote_message *rmsg, uint32_t source, int session);

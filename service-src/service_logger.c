@@ -6,9 +6,9 @@
 #include <string.h>
 
 struct logger {
-	FILE * handle;
-	char * filename;
-	int close;
+	FILE * handle;			// 文件句柄，有可能是stdout
+	char * filename;		// 文件名
+	int close;				// 是否需要close操作，非stdout时需要
 };
 
 struct logger *
@@ -35,6 +35,7 @@ logger_cb(struct skynet_context * context, void *ud, int type, int session, uint
 	struct logger * inst = ud;
 	switch (type) {
 	case PTYPE_SYSTEM:
+		// PTYPE_SYSTEM消息是让文件以追加模式重新打开
 		if (inst->filename) {
 			inst->handle = freopen(inst->filename, "a", inst->handle);
 		}
@@ -53,7 +54,7 @@ logger_cb(struct skynet_context * context, void *ud, int type, int session, uint
 int
 logger_init(struct logger * inst, struct skynet_context *ctx, const char * parm) {
 	if (parm) {
-		inst->handle = fopen(parm,"w");
+		inst->handle = fopen(parm, "w");
 		if (inst->handle == NULL) {
 			return 1;
 		}

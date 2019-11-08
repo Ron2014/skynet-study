@@ -57,9 +57,11 @@ _cb(struct skynet_context * context, void * ud, int type, int session, uint32_t 
 	lua_State *L = ud;
 	int trace = 1;
 	int r;
+
 	int top = lua_gettop(L);
 	if (top == 0) {
 		lua_pushcfunction(L, traceback);
+		// registry[_cb] 压栈，即回调函数
 		lua_rawgetp(L, LUA_REGISTRYINDEX, _cb);
 	} else {
 		assert(top == 2);
@@ -72,6 +74,7 @@ _cb(struct skynet_context * context, void * ud, int type, int session, uint32_t 
 	lua_pushinteger(L, session);
 	lua_pushinteger(L, source);
 
+	// callback(type, msg, sz, session, source)
 	r = lua_pcall(L, 5, 0 , trace);
 
 	if (r == LUA_OK) {
@@ -108,14 +111,20 @@ forward_cb(struct skynet_context * context, void * ud, int type, int session, ui
 static int
 lcallback(lua_State *L) {
 	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
+	// 参数1：lua函数
+	// 参数2：forward标记
 	int forward = lua_toboolean(L, 2);
 	luaL_checktype(L,1,LUA_TFUNCTION);
+
+	// registry[_cb] = lua函数，并弹栈
 	lua_settop(L,1);
 	lua_rawsetp(L, LUA_REGISTRYINDEX, _cb);
 
+	// registry[LUA_RIDX_MAINTHREAD] 压栈
 	lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
 	lua_State *gL = lua_tothread(L,-1);
 
+	// 此时 参数1：lua函数，参数2：lua虚拟机
 	if (forward) {
 		skynet_callback(context, gL, forward_cb);
 	} else {
@@ -143,6 +152,10 @@ lcommand(lua_State *L) {
 	return 0;
 }
 
+/**
+ * 和 lcommand 的区别是会处理返回值
+ * 如果是 :xxx 表示的16进制句柄，将其转化成10进制
+*/
 static int
 laddresscommand(lua_State *L) {
 	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
@@ -175,6 +188,11 @@ laddresscommand(lua_State *L) {
 	return 0;
 }
 
+/**
+ * 和 lcommand 的区别是：
+ * 1. 如果传入参数是数字，将其转化为字符串
+ * 2. 对于返回值，强制将其转换成数字
+*/
 static int
 lintcommand(lua_State *L) {
 	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
@@ -229,9 +247,16 @@ get_dest_string(lua_State *L, int index) {
 	return dest_string;
 }
 
+/**
+ * 向某个服务发送消息
+*/
 static int
 send_message(lua_State *L, int source, int idx_type) {
 	struct skynet_context * context = lua_touserdata(L, lua_upvalueindex(1));
+
+	// 第一个参数：目标服务实例信息，分两种情况
+	// 数字xxx 句柄			dest
+	// 字符串.xxx 别名		dest_string
 	uint32_t dest = (uint32_t)lua_tointeger(L, 1);
 	const char * dest_string = NULL;
 	if (dest == 0) {
@@ -241,7 +266,10 @@ send_message(lua_State *L, int source, int idx_type) {
 		dest_string = get_dest_string(L, 1);
 	}
 
+	// 第二个参数：消息类型
 	int type = luaL_checkinteger(L, idx_type+0);
+
+	// 第三个参数：消息ID
 	int session = 0;
 	if (lua_isnil(L,idx_type+1)) {
 		type |= PTYPE_TAG_ALLOCSESSION;
@@ -249,6 +277,7 @@ send_message(lua_State *L, int source, int idx_type) {
 		session = luaL_checkinteger(L,idx_type+1);
 	}
 
+	// 第四个参数：消息数据的类型
 	int mtype = lua_type(L,idx_type+2);
 	switch (mtype) {
 	case LUA_TSTRING: {
@@ -266,6 +295,7 @@ send_message(lua_State *L, int source, int idx_type) {
 	}
 	case LUA_TLIGHTUSERDATA: {
 		void * msg = lua_touserdata(L,idx_type+2);
+		// 第五个参数：消息数据的大小
 		int size = luaL_checkinteger(L,idx_type+3);
 		if (dest_string) {
 			session = skynet_sendname(context, source, dest_string, type | PTYPE_TAG_DONTCOPY, session, msg, size);
@@ -369,13 +399,17 @@ lharbor(lua_State *L) {
 	return 2;
 }
 
+/**
+ * packstring 调用了 luaseri_pack
+ * 但它只有一个返回值：将 lightuserdata 作为 string 返回
+*/
 static int
 lpackstring(lua_State *L) {
 	luaseri_pack(L);
 	char * str = (char *)lua_touserdata(L, -2);
 	int sz = lua_tointeger(L, -1);
 	lua_pushlstring(L, str, sz);
-	skynet_free(str);
+	skynet_free(str);	// luaseri_pack push了2个值在栈里，这里不要pop么？？？
 	return 1;
 }
 
@@ -511,15 +545,15 @@ luaopen_skynet_core(lua_State *L) {
 
 	lua_createtable(L, 0, sizeof(l)/sizeof(l[0]) + sizeof(l2)/sizeof(l2[0]) -2);
 
+	// registry["skynet_context"] = ctx
 	lua_getfield(L, LUA_REGISTRYINDEX, "skynet_context");
 	struct skynet_context *ctx = lua_touserdata(L,-1);
+
 	if (ctx == NULL) {
 		return luaL_error(L, "Init skynet context first");
 	}
 
-
 	luaL_setfuncs(L,l,1);
-
 	luaL_setfuncs(L,l2,0);
 
 	return 1;

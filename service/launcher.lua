@@ -139,7 +139,7 @@ function command.QUERY(_, request_session)
 end
 
 -- for historical reasons, launcher support text command (for C service)
-
+-- 历史原因，注册text协议
 skynet.register_protocol {
 	name = "text",
 	id = skynet.PTYPE_TEXT,
@@ -155,6 +155,7 @@ skynet.register_protocol {
 	end,
 }
 
+-- 给lua协议注册dispatch函数
 skynet.dispatch("lua", function(session, address, cmd , ...)
 	cmd = string.upper(cmd)
 	local f = command[cmd]
@@ -168,4 +169,30 @@ skynet.dispatch("lua", function(session, address, cmd , ...)
 	end
 end)
 
+-- 空的init函数
+-- 主要还是看看 skynet.start 中如何接管消息处理
 skynet.start(function() end)
+
+--[[
+	launcher 是在 bootstrap.lua 中执行以下代码创建的
+
+	local launcher = assert(skynet.launch("snlua","launcher"))
+	skynet.name(".launcher", launcher)
+
+	其本质上还是个snlua服务，在环境中形成了3级结构：
+	[launcher.lua]	-- 服务逻辑
+    [snlua]			-- lua虚拟机
+	[skynet]		-- 全局服务实例管理器 handle_storage 统一管理所有服务实例与别名关系
+
+	脚本层使用到的api，分为C和lua
+	C-API：./lualib-src/lua-skynet.c
+	lua-API：./lualib/skynet.lua ./lualib/skynet/manager.lua
+
+	lua服务的启动逻辑：
+	1. 发送消息：skynet.newservice -> skynet.call 使用lua协议向.launcher服务发消息
+	2. 处理消息：snlua服务实例的callback -> skynet.dispatch_message
+	-> launcher.lua通过skynet.dispatch注册的匿名函数(查找command) -> command.LAUNCH
+	-> launch_service -> skynet.launch（你看lancuher都是这样启动的）
+
+	由此可知，每个lua服务都运行在snlua服务实例中的虚拟机中（并没有共享lua虚拟机）
+]]

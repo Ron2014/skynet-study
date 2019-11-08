@@ -4,8 +4,9 @@
 #include <stdint.h>
 
 // reserve high 8 bits for remote id
-#define HANDLE_MASK 0xffffff
-#define HANDLE_REMOTE_SHIFT 24
+#define HANDLE_MASK 0xffffff            // 服务实例句柄：3个字节
+#define HANDLE_REMOTE_SHIFT 24          // 服务器ID：（高位）1个字节，0~255
+////////////////////////////////////////// 一个handle共4个字节
 
 struct skynet_context;
 

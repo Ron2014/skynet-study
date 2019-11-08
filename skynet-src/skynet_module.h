@@ -9,12 +9,12 @@ typedef void (*skynet_dl_release)(void * inst);
 typedef void (*skynet_dl_signal)(void * inst, int signal);
 
 struct skynet_module {
-	const char * name;
-	void * module;
-	skynet_dl_create create;
-	skynet_dl_init init;
-	skynet_dl_release release;
-	skynet_dl_signal signal;
+	const char * name;				// 模块名，一般是so的文件名
+	void * module;					// 该so加载入内存后的dl句柄
+	skynet_dl_create create;		// 构造函数
+	skynet_dl_init init;			// 初始化函数，此时服务已注册
+	skynet_dl_release release;		// 析构函数
+	skynet_dl_signal signal;		// 信号响应
 };
 
 void skynet_module_insert(struct skynet_module *mod);

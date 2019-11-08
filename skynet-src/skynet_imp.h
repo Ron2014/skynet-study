@@ -12,7 +12,8 @@ struct skynet_config {
 	const char * logservice;
 };
 
-#define THREAD_WORKER 0
+// 线程分类，私有数据根据该值与key关联
+#define THREAD_WORKER 0			// 可知，多个woker线程的私有数据是共享的
 #define THREAD_MAIN 1
 #define THREAD_SOCKET 2
 #define THREAD_TIMER 3

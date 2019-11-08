@@ -187,14 +187,25 @@ wb_pointer(struct write_block *wb, void *v) {
 	wb_push(wb, &v, sizeof(v));
 }
 
+/**
+ * 序列化一个字符串
+ * 第1个字节比较特殊，表示序列化的格式
+ * 	低3位表示字符串类型：
+ * 		TYPE_SHORT_STRING
+ * 		TYPE_LONG_STRING
+ * 	高5位和字符串长度len有关
+ * 		TYPE_SHORT_STRING：表示的是len的数值。
+ * 		TYPE_LONG_STRING：表示的是len数据所占字节。
+*/
 static inline void
 wb_string(struct write_block *wb, const char *str, int len) {
 	if (len < MAX_COOKIE) {
-		uint8_t n = COMBINE_TYPE(TYPE_SHORT_STRING, len);
+		uint8_t n = COMBINE_TYPE(TYPE_SHORT_STRING, len);		// n = len*8 + 4
 		wb_push(wb, &n, 1);
 		if (len > 0) {
 			wb_push(wb, str, len);
 		}
+		// [len*8+4:1][str:len] ：短字符串，len只有5位，0~31
 	} else {
 		uint8_t n;
 		if (len < 0x10000) {
@@ -202,11 +213,13 @@ wb_string(struct write_block *wb, const char *str, int len) {
 			wb_push(wb, &n, 1);
 			uint16_t x = (uint16_t) len;
 			wb_push(wb, &x, 2);
+			// [2*8+5:1][len:2][str:len] ：长字符串，len占2字节，32~65535
 		} else {
 			n = COMBINE_TYPE(TYPE_LONG_STRING, 4);
 			wb_push(wb, &n, 1);
 			uint32_t x = (uint32_t) len;
 			wb_push(wb, &x, 4);
+			// [4*8+5:1][len:4][str:len] ：长字符串，len占4字节，65536~4294967295
 		}
 		wb_push(wb, str, len);
 	}
@@ -531,6 +544,10 @@ unpack_one(lua_State *L, struct read_block *rb) {
 	push_value(L, rb, type & 0x7, type>>3);
 }
 
+/**
+ * 将block链表的数据，移到一个连续的内存单元buffer
+ * 然后将buffer压栈
+*/
 static void
 seri(lua_State *L, struct block *b, int len) {
 	uint8_t * buffer = skynet_malloc(len);
@@ -596,6 +613,15 @@ luaseri_unpack(lua_State *L) {
 	return lua_gettop(L) - 1;
 }
 
+/**
+ * luaseri_pack 是对 ... 的序列化，调用方式为 p.pack(...)
+ * 一番操作后，栈中留下两个返回值(见seri)：
+ * 1. ... 整理成的 buffer，作为 lightuserdata
+ * 2. buffer的内存大小
+ * 
+ * 经测试：若 ... 中只有单个字符串 "abc"
+ * pack得到的buffer长度是4，即头部会多一个字节
+*/
 LUAMOD_API int
 luaseri_pack(lua_State *L) {
 	struct block temp;

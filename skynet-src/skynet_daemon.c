@@ -9,6 +9,9 @@
 
 #include "skynet_daemon.h"
 
+/**
+ * 将pidfile打开，读出其中的pid
+*/
 static int
 check_pid(const char *pidfile) {
 	int pid = 0;
@@ -28,6 +31,9 @@ check_pid(const char *pidfile) {
 	return pid;
 }
 
+/**
+ * 将本进程pid写入到pidfile中
+*/
 static int
 write_pid(const char *pidfile) {
 	FILE *f;
@@ -65,6 +71,9 @@ write_pid(const char *pidfile) {
 	return pid;
 }
 
+/**
+ * 标准输入输出重定向
+*/
 static int
 redirect_fds() {
 	int nfd = open("/dev/null", O_RDWR);
@@ -90,6 +99,9 @@ redirect_fds() {
 	return 0;
 }
 
+/**
+ * 创建守护进程
+*/
 int
 daemon_init(const char *pidfile) {
 	int pid = check_pid(pidfile);
@@ -120,6 +132,9 @@ daemon_init(const char *pidfile) {
 	return 0;
 }
 
+/**
+ * 守护进程退出，会删除对应pidfile
+*/
 int
 daemon_exit(const char *pidfile) {
 	return unlink(pidfile);

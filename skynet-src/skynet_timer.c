@@ -22,11 +22,11 @@
 typedef void (*timer_execute_func)(void *ud,void *arg);
 
 #define TIME_NEAR_SHIFT 8
-#define TIME_NEAR (1 << TIME_NEAR_SHIFT)
+#define TIME_NEAR (1 << TIME_NEAR_SHIFT)		// 256
 #define TIME_LEVEL_SHIFT 6
-#define TIME_LEVEL (1 << TIME_LEVEL_SHIFT)
-#define TIME_NEAR_MASK (TIME_NEAR-1)
-#define TIME_LEVEL_MASK (TIME_LEVEL-1)
+#define TIME_LEVEL (1 << TIME_LEVEL_SHIFT)		// 64
+#define TIME_NEAR_MASK (TIME_NEAR-1)			// 0~255
+#define TIME_LEVEL_MASK (TIME_LEVEL-1)			// 0~63
 
 struct timer_event {
 	uint32_t handle;
@@ -43,18 +43,26 @@ struct link_list {
 	struct timer_node *tail;
 };
 
+////////////////////////////////////// 计时器
 struct timer {
 	struct link_list near[TIME_NEAR];
 	struct link_list t[4][TIME_LEVEL];
 	struct spinlock lock;
-	uint32_t time;
-	uint32_t starttime;
-	uint64_t current;
-	uint64_t current_point;
+	uint32_t time;							// timer_update 累计执行的次数。通常为系统流逝的厘秒数，即与current有关
+	uint32_t starttime;						// 系统启动时间。单位：秒
+	uint64_t current;						// 系统运行时间（累计值）。单位：厘秒
+	uint64_t current_point;					// 当前时间。单位：厘秒
 };
 
 static struct timer * TI = NULL;
+//////////////////////////////////////
 
+/**
+ * --------------------<-|
+ *     head   [next]=0   |
+ *            expire     |
+ * ---[tail]-------------|
+*/
 static inline struct timer_node *
 link_clear(struct link_list *list) {
 	struct timer_node * ret = list->head.next;
@@ -64,6 +72,13 @@ link_clear(struct link_list *list) {
 	return ret;
 }
 
+/**
+ * link_list                node
+ * ----------------------|->---------------------
+ *     head   [next]-----|    head   [next]=0   |
+ *            expire     |           expire     |
+ * ---[tail]-------------|---[tail]--------------
+*/
 static inline void
 link(struct link_list *list,struct timer_node *node) {
 	list->tail->next = node;
@@ -73,8 +88,8 @@ link(struct link_list *list,struct timer_node *node) {
 
 static void
 add_node(struct timer *T,struct timer_node *node) {
-	uint32_t time=node->expire;
-	uint32_t current_time=T->time;
+	uint32_t time = node->expire;
+	uint32_t current_time = T->time;
 	
 	if ((time|TIME_NEAR_MASK)==(current_time|TIME_NEAR_MASK)) {
 		link(&T->near[time&TIME_NEAR_MASK],node);
@@ -126,8 +141,8 @@ timer_shift(struct timer *T) {
 		int i=0;
 
 		while ((ct & (mask-1))==0) {
-			int idx=time & TIME_LEVEL_MASK;
-			if (idx!=0) {
+			int idx = time & TIME_LEVEL_MASK;
+			if (idx != 0) {
 				move_list(T, i, idx);
 				break;				
 			}
@@ -230,7 +245,15 @@ skynet_timeout(uint32_t handle, int time, int session) {
 	return session;
 }
 
+/**
+ * 3处系统调用：
+ * systime -> clock_gettime(CLOCK_REALTIME, &ti);						挂钟时间。即wall time，这个值可以人为改变
+ * gettime -> clock_gettime(CLOCK_MONOTONIC, &ti);						单调时间。系统启动后流动的时间
+ * skynet_thread_time -> clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ti); 	调用线程的CPU时间。
+*/
+
 // centisecond: 1/100 second
+// 挂钟时间。返回秒，厘秒
 static void
 systime(uint32_t *sec, uint32_t *cs) {
 #if !defined(__APPLE__) || defined(AVAILABLE_MAC_OS_X_VERSION_10_12_AND_LATER)
@@ -246,6 +269,7 @@ systime(uint32_t *sec, uint32_t *cs) {
 #endif
 }
 
+// 单调时间。返回一个值，单位：厘秒。
 static uint64_t
 gettime() {
 	uint64_t t;
@@ -267,12 +291,15 @@ void
 skynet_updatetime(void) {
 	uint64_t cp = gettime();
 	if(cp < TI->current_point) {
+		// 系统调用的值比记录的值要小，报个警
 		skynet_error(NULL, "time diff error: change from %lld to %lld", cp, TI->current_point);
 		TI->current_point = cp;
 	} else if (cp != TI->current_point) {
 		uint32_t diff = (uint32_t)(cp - TI->current_point);
-		TI->current_point = cp;
-		TI->current += diff;
+		TI->current_point = cp;		// 记录单调时间
+		TI->current += diff;		// 累计运行时间
+
+		// 根据流逝的厘秒量，执行逻辑
 		int i;
 		for (i=0;i<diff;i++) {
 			timer_update(TI);
@@ -280,11 +307,17 @@ skynet_updatetime(void) {
 	}
 }
 
+/**
+ * 系统启动时间。单位：秒
+*/
 uint32_t
 skynet_starttime(void) {
 	return TI->starttime;
 }
 
+/**
+ * 系统运行时间。累计值，单位：厘秒
+*/
 uint64_t 
 skynet_now(void) {
 	return TI->current;
@@ -295,15 +328,17 @@ skynet_timer_init(void) {
 	TI = timer_create_timer();
 	uint32_t current = 0;
 	systime(&TI->starttime, &current);
-	TI->current = current;
+	TI->current = current;					// 不太明白，这个累计运行时间为啥不从0开始算？？？
 	TI->current_point = gettime();
 }
 
-// for profile
+// for profile，为了分析器统计CPU时间，需要的精度更高
+// dispatch_message -> skynet_thread_time
 
-#define NANOSEC 1000000000
-#define MICROSEC 1000000
+#define NANOSEC 1000000000		// 纳秒
+#define MICROSEC 1000000		// 微秒
 
+// 调用线程CPU时间。返回一个值，单位：微秒
 uint64_t
 skynet_thread_time(void) {
 #if  !defined(__APPLE__) || defined(AVAILABLE_MAC_OS_X_VERSION_10_12_AND_LATER)

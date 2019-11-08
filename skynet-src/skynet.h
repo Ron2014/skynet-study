@@ -34,6 +34,11 @@ int skynet_sendname(struct skynet_context * context, uint32_t source, const char
 
 int skynet_isremote(struct skynet_context *, uint32_t handle, int * harbor);
 
+/**
+ * callback具有统一的格式
+ * 参数：服务实例，固定参数（通常为模块实例），消息类型，消息ID，消息源的服务实例句柄，消息数据，消息数据大小
+ * 返回值：是否保留消息数据，否则会在外部skynet_free(msg->data)
+*/
 typedef int (*skynet_cb)(struct skynet_context * context, void *ud, int type, int session, uint32_t source , const void * msg, size_t sz);
 void skynet_callback(struct skynet_context * context, void *ud, skynet_cb cb);
 

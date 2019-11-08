@@ -28,9 +28,11 @@ skynet_error(struct skynet_context * context, const char *msg, ...) {
 	va_start(ap,msg);
 	int len = vsnprintf(tmp, LOG_MESSAGE_SIZE, msg, ap);
 	va_end(ap);
+
 	if (len >=0 && len < LOG_MESSAGE_SIZE) {
 		data = skynet_strdup(tmp);
 	} else {
+		// 考虑size问题，申请到足够大的内存来保存格式化后的字符串
 		int max_size = LOG_MESSAGE_SIZE;
 		for (;;) {
 			max_size *= 2;
@@ -50,7 +52,7 @@ skynet_error(struct skynet_context * context, const char *msg, ...) {
 		return;
 	}
 
-
+	// 将格式化后的字符串包成消息（smsg.data）
 	struct skynet_message smsg;
 	if (context == NULL) {
 		smsg.source = 0;

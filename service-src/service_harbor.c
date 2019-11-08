@@ -714,6 +714,9 @@ mainloop(struct skynet_context * context, void * ud, int type, int session, uint
 	}
 }
 
+/**
+ * harhor模块
+*/
 int
 harbor_init(struct harbor *h, struct skynet_context *ctx, const char * args) {
 	h->ctx = ctx;
