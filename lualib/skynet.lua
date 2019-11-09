@@ -699,6 +699,10 @@ end
 skynet.error = c.error
 skynet.tracelog = c.trace
 
+function skynet.log(fmt, ...)
+    return skynet.error(string.format(fmt, ...))
+end
+
 -- true: force on
 -- false: force off
 -- nil: optional (use skynet.trace() to trace one message)
