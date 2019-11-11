@@ -338,17 +338,21 @@ clear_wb_list(struct wb_list *list) {
 struct socket_server * 
 socket_server_create(uint64_t time) {
 	int i;
+	// 两种方式同时用 poll/epoll
 	int fd[2];
 	poll_fd efd = sp_create();
+
 	if (sp_invalid(efd)) {
 		fprintf(stderr, "socket-server: create event pool failed.\n");
 		return NULL;
 	}
+	// poll用到的socket
 	if (pipe(fd)) {
 		sp_release(efd);
 		fprintf(stderr, "socket-server: create socket pair failed.\n");
 		return NULL;
 	}
+	// 注册epoll
 	if (sp_add(efd, fd[0], NULL)) {
 		// add recvctrl_fd to event poll
 		fprintf(stderr, "socket-server: can't add server fd to event pool.\n");
@@ -361,8 +365,8 @@ socket_server_create(uint64_t time) {
 	struct socket_server *ss = MALLOC(sizeof(*ss));
 	ss->time = time;
 	ss->event_fd = efd;
-	ss->recvctrl_fd = fd[0];
-	ss->sendctrl_fd = fd[1];
+	ss->recvctrl_fd = fd[0];		// for read
+	ss->sendctrl_fd = fd[1];		// for write
 	ss->checkctrl = 1;
 
 	for (i=0;i<MAX_SOCKET;i++) {

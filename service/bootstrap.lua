@@ -21,6 +21,14 @@ require "skynet.manager"	-- import skynet.launch, ...
 	snlua_init: 添加消息
 	-> launch_cb -> init_cb: 处理消息 loader.lua 执行 launcher.lua
 	之后lua服务的启动都交由 .launcher服务完成，包装成 skynet.newservice 调用
+
+	需要进一步了解的内容：
+	1. master-slave 集群架构
+	2. datacenterd 数据中心
+	3. cdummy 单节点模式
+	4. service_mgr(.service) 服务管理器与 .launcher 服务的区别
+
+	由此可见，bootstrap的作用是【构建服务器的运行时框架】
 --]]
 
 skynet.start(function()

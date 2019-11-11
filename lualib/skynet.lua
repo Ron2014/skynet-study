@@ -361,6 +361,8 @@ end
 	消息内容都是通过 p.pack 序列化处理后发送出去的
 	对于同类服务，其序列化、反序列化接口可以保持一致
 	例如, [snlua xxx.lua服务] 向 [snlua xxx.lua服务] 发送消息
+
+	skynet.send 和 skynet.rawsend 发送消息的 session 都是 0
 --]]
 function skynet.send(addr, typename, ...)
 	local p = proto[typename]
@@ -398,6 +400,15 @@ local function yield_call(service, session)
 	end
 	return msg,sz
 end
+
+--[[
+	skynet.call/skynet.rawcall 是复杂版的 skynet.send/skynet.rawsend
+	1. 消息的session是自动分配的
+	2. 有了session，目标服务、发送消息的协程都可以记录下来(yield_call)
+	3. skynet.call 在 c.send 发送消息后，会一直等待回复消息（raw_dispatch_message处理 PTYPE_RESPONSE ）
+
+	返回的响应消息，可能是目标服务消息处理函数的返回值，也肯能是异常信息
+]]
 
 function skynet.call(addr, typename, ...)
 	local tag = session_coroutine_tracetag[running_thread]
@@ -668,6 +679,7 @@ function skynet.newservice(name, ...)
 	return skynet.call(".launcher", "lua" , "LAUNCH", "snlua", name, ...)
 end
 
+-- global 有可能是服务名称
 function skynet.uniqueservice(global, ...)
 	if global == true then
 		return assert(skynet.call(".service", "lua", "GLAUNCH", ...))
@@ -684,6 +696,7 @@ function skynet.queryservice(global, ...)
 	end
 end
 
+-- address格式： :xxx 16进制句柄
 function skynet.address(addr)
 	if type(addr) == "number" then
 		return string.format(":%08x",addr)
@@ -696,7 +709,12 @@ function skynet.harbor(addr)
 	return c.harbor(addr)
 end
 
-skynet.error = c.error
+-- 支持变长参数写起来更方便啦
+function skynet.error(fmt, ...)
+	return c.error(string.format(fmt, ...))
+end
+
+--skynet.error = c.error
 skynet.tracelog = c.trace
 
 -- true: force on
@@ -732,7 +750,7 @@ do
 end
 
 local init_func = {}
-
+-- 若服务未初始化完成，就要执行逻辑，需要放入队列中
 function skynet.init(f, name)
 	assert(type(f) == "function")
 	if init_func == nil then
@@ -747,6 +765,7 @@ function skynet.init(f, name)
 	end
 end
 
+-- 服务初始化完成，此时将等待中的逻辑一次性执行完
 local function init_all()
 	local funcs = init_func
 	init_func = nil
@@ -768,6 +787,14 @@ local function init_template(start, ...)
 	return ret(init_all, start(...))
 end
 
+--[[
+	lua服务启动，有两个异步调用：
+	1. skynet.start -> c.callback（注册回调函数）
+	2. skynet.init_service -> skynet.pcall 	-> init_template -> init_all			等待服务初始化的预先操作
+								  							 -> start(...)			服务的初始化，这里面可能又会向 init_func 提交作业
+															 -> ret -> init_all		服务初始化后的首尾操作
+															 		-> 返回start(...)的返回值
+]]
 function skynet.pcall(start, ...)
 	return xpcall(init_template, traceback, start, ...)
 end
@@ -783,6 +810,11 @@ function skynet.init_service(start)
 	end
 end
 
+--[[
+	通常lua服务启动时执行 skynet.start(init_func)
+	其中指定的 init_func （lua服务初始化函数）是异步调用（skynet.timeout）的。
+	skynet.init_service 会根据 init_func的执行结果给与 .launcher 反馈 （ERROR 或者 LAUNCHOK）
+]]
 function skynet.start(start_func)
 	c.callback(skynet.dispatch_message)		-- 接管消息处理
 	init_thread = skynet.timeout(0, function()

@@ -333,6 +333,7 @@ dispatch_message(struct skynet_context *ctx, struct skynet_message *msg)
     assert(ctx->init);
     CHECKCALLING_BEGIN(ctx)
     
+    // TLS，设置了服务的handle，malloc_hook就可知是哪个服务申请内存
     pthread_setspecific(G_NODE.handle_key, (void *)(uintptr_t)(ctx->handle));
 
     int type = msg->sz >> MESSAGE_TYPE_SHIFT;

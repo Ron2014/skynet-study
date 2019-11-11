@@ -79,6 +79,9 @@ wakeup(struct monitor *m, int busy) {
 	}
 }
 
+/**
+ * socket线程居然是轮询
+*/
 static void *
 thread_socket(void *p) {
 	struct monitor * m = p;

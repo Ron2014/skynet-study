@@ -1,6 +1,6 @@
 local skynet = require "skynet"
 local netpack = require "skynet.netpack"
-local socketdriver = require "skynet.socketdriver"
+local socketdriver = require "skynet.socketdriver"		-- lualib-src/lua-socket.c
 
 local gateserver = {}
 
@@ -13,12 +13,14 @@ local nodelay = false
 
 local connection = {}
 
+-- 连接客户端
 function gateserver.openclient(fd)
 	if connection[fd] then
 		socketdriver.start(fd)
 	end
 end
 
+-- 断开客户端
 function gateserver.closeclient(fd)
 	local c = connection[fd]
 	if c then
@@ -27,6 +29,28 @@ function gateserver.closeclient(fd)
 	end
 end
 
+--[[
+	CMD = {
+		open：
+			socketdriver.listen
+			socketdriver.start
+			handler.open
+		close：
+			socketdriver.close
+	}
+
+	MSG = {
+		data = dispatch_msg			-> handler.message
+		more = dispatch_queue
+
+		open						-> handler.connect
+		close 						-> handler.disconnect, close_fd
+		error
+		warning
+	}
+]]
+
+-- 启动gate服务
 function gateserver.start(handler)
 	assert(handler.message)
 	assert(handler.connect)
@@ -78,6 +102,7 @@ function gateserver.start(handler)
 
 	MSG.more = dispatch_queue
 
+	-- 建立连接
 	function MSG.open(fd, msg)
 		if client_number >= maxclient then
 			socketdriver.close(fd)
@@ -135,6 +160,7 @@ function gateserver.start(handler)
 			return netpack.filter( queue, msg, sz)
 		end,
 		dispatch = function (_, _, q, type, ...)
+			-- 处理网络消息
 			queue = q
 			if type then
 				MSG[type](...)
@@ -144,10 +170,12 @@ function gateserver.start(handler)
 
 	skynet.start(function()
 		skynet.dispatch("lua", function (_, address, cmd, ...)
+			-- 处理服务之间的消息
 			local f = CMD[cmd]
 			if f then
 				skynet.ret(skynet.pack(f(address, ...)))
 			else
+				-- 如果不是open/close，就是自定义的命令了
 				skynet.ret(skynet.pack(handler.command(cmd, address, ...)))
 			end
 		end)

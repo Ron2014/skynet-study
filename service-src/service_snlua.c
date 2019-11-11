@@ -199,8 +199,9 @@ snlua_init(struct snlua *l, struct skynet_context *ctx, const char * args) {
 }
 
 /**
- * 分配器仅做统计使用，判断限额或者报警
- * 底层还是交给了jemalloc
+ * 内存统计：Lua环境
+ * 同时判断限额或者报警
+ * lalloc -> skynet_lalloc -> realloc (原生函数)
 */
 static void *
 lalloc(void * ud, void *ptr, size_t osize, size_t nsize) {

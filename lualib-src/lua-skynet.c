@@ -154,7 +154,7 @@ lcommand(lua_State *L) {
 
 /**
  * 和 lcommand 的区别是会处理返回值
- * 如果是 :xxx 表示的16进制句柄，将其转化成10进制
+ * 如果是 :xxx 表示的16进制句柄，将其转化成10进制数字
 */
 static int
 laddresscommand(lua_State *L) {
@@ -406,10 +406,10 @@ lharbor(lua_State *L) {
 static int
 lpackstring(lua_State *L) {
 	luaseri_pack(L);
-	char * str = (char *)lua_touserdata(L, -2);
+	char * str = (char *)lua_touserdata(L, -2);			// 这个 userdata 是序列化之后的结果，强制转换成 char* 的话其实是不可读的
 	int sz = lua_tointeger(L, -1);
 	lua_pushlstring(L, str, sz);
-	skynet_free(str);	// luaseri_pack push了2个值在栈里，这里不要pop么？？？
+	skynet_free(str);	// luaseri_pack push了2个值在栈里，这里不要pop么？？？函数返回时，会根据栈帧清栈，而不是返回值数量，这个大可放心好了。
 	return 1;
 }
 

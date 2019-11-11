@@ -68,7 +68,7 @@ local function waitfor(name , func, ...)
 end
 
 local function read_name(service_name)
-	if string.byte(service_name) == 64 then -- '@'
+	if string.byte(service_name) == 64 then -- '@'开头 0x3F 00111111B
 		return string.sub(service_name , 2)
 	else
 		return service_name
@@ -197,6 +197,7 @@ end
 
 skynet.start(function()
 	skynet.dispatch("lua", function(session, address, command, ...)
+		-- 所有的消息都有 RESPONSE
 		local f = cmd[command]
 		if f == nil then
 			skynet.ret(skynet.pack(nil, "Invalid command " .. command))
@@ -211,6 +212,8 @@ skynet.start(function()
 			skynet.ret(skynet.pack(nil, r))
 		end
 	end)
+
+	-- 保证全局唯一的别名 .service
 	local handle = skynet.localname ".service"
 	if  handle then
 		skynet.error(".service is already register by ", skynet.address(handle))

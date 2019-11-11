@@ -62,6 +62,7 @@ function command.GC()
 	return command.MEM()
 end
 
+-- 清除记录的服务
 function command.REMOVE(_, handle, kill)
 	services[handle] = nil
 	local response = instance[handle]
@@ -76,11 +77,14 @@ function command.REMOVE(_, handle, kill)
 	return NORET
 end
 
+-- launcher 将自己启动的lua服务（活动的服务）统一管理
 local function launch_service(service, ...)
 	local param = table.concat({...}, " ")
 	local inst = skynet.launch(service, param)
+
+	-- launch_service是在消息处理函数中调用的，running_thread就是它自己，所以session就代表该消息的session
 	local session = skynet.context()
-	local response = skynet.response()
+	local response = skynet.response()		-- 响应闭包函数
 	if inst then
 		services[inst] = service .. " " .. param
 		instance[inst] = response
@@ -162,6 +166,8 @@ skynet.dispatch("lua", function(session, address, cmd , ...)
 	if f then
 		local ret = f(address, ...)
 		if ret ~= NORET then
+			-- 我只是一个消息处理函数，为什么执行对应的command后，会得到一个返回值呢？
+			-- 很明显这个返回值是要发送给消息源服务的，即 RESPONSE 操作 skynet.ret
 			skynet.ret(skynet.pack(ret))
 		end
 	else

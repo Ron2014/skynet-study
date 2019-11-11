@@ -12,6 +12,7 @@ function skynet.launch(...)
 end
 
 -- 杀掉服务
+-- 如果name是handle，才会让 .launcher 服务清理记录
 function skynet.kill(name)
 	if type(name) == "number" then
 		skynet.send(".launcher","lua","REMOVE",name, true)
@@ -25,7 +26,12 @@ function skynet.abort()
 	c.command("ABORT")
 end
 
--- 通知 .cslave 服务
+--[[
+	lua服务要起别名时，分两种情况
+	1. '.'开头。表示是本地的服务，这个可以注册到全局服务实例存储中（handle_storage 本机环境）去
+	2. 没有'.'开头。这种情况是全局的服务，整个服务器集群都可以通过该名称找到唯一的服务，这个名字是 .cslave服务管理的。
+		skynet.harbor库 提供了与 .cslave服务通信的接口
+--]]
 local function globalname(name, handle)
 	local c = string.sub(name,1,1)
 	assert(c ~= ':')

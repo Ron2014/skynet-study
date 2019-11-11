@@ -1,3 +1,5 @@
+// gcc编译器支持的原子操作，保证线程安全
+
 #ifndef SKYNET_ATOMIC_H
 #define SKYNET_ATOMIC_H
 

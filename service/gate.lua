@@ -5,10 +5,38 @@ local watchdog
 local connection = {}	-- fd -> connection : { fd , client, agent , ip, mode }
 local forwarding = {}	-- agent -> connection
 
+-- 客户端消息协议
 skynet.register_protocol {
 	name = "client",
 	id = skynet.PTYPE_CLIENT,
 }
+
+--[[
+	下面是两份配置，handle 和 CMD。CMD 相当于 handler.command 的命令手册。
+	gate 服务的启动由 gateserver.start 完成。
+
+	gate 的消息应该分两类：
+	1. 从其他服务发来的消息。协议为lua
+	2. 从客户端发来的消息。协议为socket
+
+	handle = {
+		open			-> 记下 watchdog
+		message
+
+		connect											= 通知watchdog操作agent
+		disconnect		-> close_fd -> unforward		= 通知watchdog操作agent
+		error			-> close_fd -> unforward		= 通知watchdog操作agent
+		warning											= 通知watchdog操作agent
+		
+		command
+	}
+
+	CMD = {
+		forward
+		accept
+		kick
+	}
+]]
 
 local handler = {}
 
