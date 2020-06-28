@@ -194,7 +194,7 @@ snlua_init(struct snlua *l, struct skynet_context *ctx, const char * args) {
 	uint32_t handle_id = strtoul(self+1, NULL, 16);
 
 	// it must be first message
-	skynet_send(ctx, 0, handle_id, PTYPE_TAG_DONTCOPY,0, tmp, sz);
+	skynet_send(ctx, 0, handle_id, PTYPE_TAG_DONTCOPY, 0, tmp, sz);
 	return 0;
 }
 

@@ -221,6 +221,10 @@ skynet_context_new(const char *name, const char *param)
     }
 }
 
+/**
+ * 确定消息的ID
+ * 自增
+ */
 int skynet_context_newsession(struct skynet_context *ctx)
 {
     // session always be a positive number
@@ -416,7 +420,7 @@ skynet_context_message_dispatch(struct skynet_monitor *sm, struct message_queue 
     {
         if (skynet_mq_pop(q, &msg))
         {
-            // 消息队列为空，就不断算将其放回去了
+            // 消息队列为空，就不打算将其放回去了
             // 仅恢复引用计数
             skynet_context_release(ctx);
             return skynet_globalmq_pop();
@@ -974,6 +978,10 @@ _filter_args(struct skynet_context *context, int type, int *session, void **data
  * 
  * skynet_send -> _filter_args -> skynet_harbor_send -> skynet_context_send -> skynet_mq_push
  *                             -> skynet_context_push -> skynet_mq_push
+ * 
+ * context 发送消息
+ * destination 接受消息
+ * 如果要回复，向 source 发送应答消息
 */
 int skynet_send(struct skynet_context *context, uint32_t source, uint32_t destination, int type, int session, void *data, size_t sz)
 {
