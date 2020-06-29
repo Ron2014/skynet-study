@@ -8,6 +8,8 @@ typedef int (*skynet_dl_init)(void * inst, struct skynet_context *, const char *
 typedef void (*skynet_dl_release)(void * inst);
 typedef void (*skynet_dl_signal)(void * inst, int signal);
 
+// 说是模块
+// 其实都是动态链接库!!!
 struct skynet_module {
 	const char * name;				// 模块名，一般是so的文件名
 	void * module;					// 该so加载入内存后的dl句柄

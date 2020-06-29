@@ -246,9 +246,9 @@ start(int thread) {
 
 	/**
 	 * 权重分 5 级：代表消息循环的每一步（从全局消息队列pop，再到push之间）处理的消息数量n与消息队列有效长度length的关系
-	 * -1  n=1
-	 *  0  n=length
-	 *  1  n=length/2
+	 * -1  n=1					一次消费1条
+	 *  0  n=length				一次消费所有
+	 *  1  n=length/2			一次消费队列中1/2^weight的消息
 	 *  2  n=length/4
 	 *  3  n=length/8
 	*/
@@ -311,18 +311,19 @@ skynet_start(struct skynet_config * config) {
 		}
 	}
 
-	// 服务器ID
+	// 1. 服务器ID
 	skynet_harbor_init(config->harbor);
-	// 全局服务实例句柄存储
+	// 2. 全局服务实例句柄存储
 	skynet_handle_init(config->harbor);
-	// 全局消息队列
+	// 3. 全局消息队列
 	skynet_mq_init();
-	// 模块管理器
+	// 4. 模块管理器
 	skynet_module_init(config->module_path);
-	// 计时器
+	// 5. 计时器
 	skynet_timer_init();
-	// 网络
+	// 6. 网络
 	skynet_socket_init();
+
 	// 分析器开关
 	skynet_profile_enable(config->profile);
 

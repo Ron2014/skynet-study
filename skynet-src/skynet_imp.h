@@ -6,10 +6,10 @@ struct skynet_config {
 	int harbor;
 	int profile;
 	const char * daemon;
-	const char * module_path;
-	const char * bootstrap;
-	const char * logger;
-	const char * logservice;
+	const char * module_path;			// cpath: 动态库存放目录 ./cservice/?.so
+	const char * bootstrap;				// bootstrap: 自举命令 snlua bootstrap
+	const char * logger;				// 日志服务的名称, 通常为 logger, 对应 cserver/logger.so
+	const char * logservice;			// 日志文件名, 日志服务实例初始化时传入的参数, 默认打到stdout
 };
 
 // 线程分类，私有数据根据该值与key关联
