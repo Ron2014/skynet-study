@@ -1,0 +1,12 @@
+fips_begin_lib(lualib)
+fips_vs_disable_warnings(4819)
+fips_files_ex(. *.c GROUP "SOURCES")
+fips_files_ex(. *.h GROUP "HEADERS")
+fips_deps(lua)
+fips_end_lib()
+
+fips_begin_sharedlib(sproto)
+fips_vs_disable_warnings(4819)
+fips_files_ex(sproto *.c GROUP "sproto/SOURCES")
+fips_files_ex(sproto *.h GROUP "sproto/HEADERS")
+fips_end_sharedlib()

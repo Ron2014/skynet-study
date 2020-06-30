@@ -1,0 +1,19 @@
+fips_begin_sharedlib(gate)
+fips_vs_disable_warnings(4819)
+fips_files(databuffer.h hashid.h service_gate.c)
+fips_end_sharedlib()
+
+fips_begin_sharedlib(harbor)
+fips_vs_disable_warnings(4819)
+fips_files(service_harbor.c)
+fips_end_sharedlib()
+
+fips_begin_sharedlib(logger)
+fips_vs_disable_warnings(4819)
+fips_files(service_logger.c)
+fips_end_sharedlib()
+
+fips_begin_sharedlib(snlua)
+fips_vs_disable_warnings(4819)
+fips_files(service_snlua.c)
+fips_end_sharedlib()

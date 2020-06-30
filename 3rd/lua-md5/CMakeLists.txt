@@ -1,0 +1,6 @@
+fips_begin_sharedlib(md5)
+fips_vs_disable_warnings(4819)
+fips_files_ex(. *.c GROUP "SOURCES")
+fips_files_ex(. *.h GROUP "HEADERS")
+fips_deps(lua)
+fips_end_sharedlib()

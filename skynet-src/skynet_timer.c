@@ -21,6 +21,10 @@
 
 typedef void (*timer_execute_func)(void *ud,void *arg);
 
+/**
+ * 时间轮算法参考 : Linux 时钟处理机制
+ * https://www.ibm.com/developerworks/cn/linux/l-cn-clocks/index.html
+*/
 #define TIME_NEAR_SHIFT 8
 #define TIME_NEAR (1 << TIME_NEAR_SHIFT)		// 256		0001 0000 0000B
 #define TIME_LEVEL_SHIFT 6
@@ -174,6 +178,13 @@ timer_shift(struct timer *T) {
 	int mask = TIME_NEAR;
 	uint32_t ct = ++T->time;
 	if (ct == 0) {
+/**
+ * 超时设置时传入的time参数为int类型，且负数时直接返回，只有time是正数时才会添加到timer中
+ * T->time最高位为0时，expiretime不会溢出。
+ * 当T->time最高位为1时，'expiretime'可能溢出，但溢出后最高位肯定为0，
+ * 所以这两个时间最高位肯定不相等，会被加入到T->t[3]中，ct==0时, 重新添加T->t[3][0]的节点
+ * t[3][i]的节点也会在之后更新T->time时得到处理。所以没有问题。
+*/
 		// time 重置了!
 		// T->t[3][0] 需要重排
 		// i = 3

@@ -1,0 +1,7 @@
+fips_begin_module(lua-lib)
+fips_files_ex(. *.lua)
+fips_files_ex(compat10 *.lua GROUP "compat10")
+fips_files_ex(http *.lua GROUP "http")
+fips_files_ex(skynet *.lua GROUP "skynet")
+fips_files_ex(snax *.lua GROUP "snax")
+fips_end_module()
