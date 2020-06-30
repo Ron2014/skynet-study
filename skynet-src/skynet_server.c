@@ -901,6 +901,9 @@ cmd_signal(struct skynet_context *context, const char *param)
     return NULL;
 }
 
+/**
+ * skynet_server 内核提供给 lua 的命令列表
+*/
 static struct command_func cmd_funcs[] = {
     {"TIMEOUT", cmd_timeout},
     {"REG", cmd_reg},

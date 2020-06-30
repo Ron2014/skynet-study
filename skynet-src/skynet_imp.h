@@ -2,8 +2,8 @@
 #define SKYNET_IMP_H
 
 struct skynet_config {
-	int thread;
-	int harbor;
+	int thread;							// 线程数量是配置的(没有调用系统ABI获取芯片的内核数量的骚操作)
+	int harbor;							// 服务器ID. 也就是分布式结构中的节点值. 0表示这个服务器架构是单节点的
 	int profile;
 	const char * daemon;
 	const char * module_path;			// cpath: 动态库存放目录 ./cservice/?.so

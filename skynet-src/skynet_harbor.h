@@ -7,6 +7,10 @@
 #define GLOBALNAME_LENGTH 16
 #define REMOTE_MAX 256
 
+/**
+ * 这个 harbor 会和服务器集群间的进程辨识有关
+*/
+
 struct remote_name {
 	char name[GLOBALNAME_LENGTH];
 	uint32_t handle;

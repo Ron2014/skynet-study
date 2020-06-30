@@ -22,11 +22,11 @@
 typedef void (*timer_execute_func)(void *ud,void *arg);
 
 #define TIME_NEAR_SHIFT 8
-#define TIME_NEAR (1 << TIME_NEAR_SHIFT)		// 256
+#define TIME_NEAR (1 << TIME_NEAR_SHIFT)		// 256		0001 0000 0000B
 #define TIME_LEVEL_SHIFT 6
-#define TIME_LEVEL (1 << TIME_LEVEL_SHIFT)		// 64
-#define TIME_NEAR_MASK (TIME_NEAR-1)			// 0~255
-#define TIME_LEVEL_MASK (TIME_LEVEL-1)			// 0~63
+#define TIME_LEVEL (1 << TIME_LEVEL_SHIFT)		// 64		0100 0000B
+#define TIME_NEAR_MASK (TIME_NEAR-1)			// 255		1111 1111B
+#define TIME_LEVEL_MASK (TIME_LEVEL-1)			// 63		0011 1111B
 
 struct timer_event {
 	uint32_t handle;
@@ -44,8 +44,10 @@ struct link_list {
 };
 
 ////////////////////////////////////// 计时器
+// 1秒 = 100厘秒
+// 1厘秒 = 10毫秒
 struct timer {
-	struct link_list near[TIME_NEAR];
+	struct link_list near[TIME_NEAR];		// 256 个链表
 	struct link_list t[4][TIME_LEVEL];
 	struct spinlock lock;
 	uint32_t time;							// timer_update 累计执行的次数。通常为系统流逝的厘秒数，即与current有关
@@ -86,31 +88,62 @@ link(struct link_list *list,struct timer_node *node) {
 	node->next=0;
 }
 
+/**
+ * 通过
+ * node 的终止时间
+ * T 的当前时间
+ * 将新 node 加到缓存中
+*/
 static void
 add_node(struct timer *T,struct timer_node *node) {
+	// 都是4字节
 	uint32_t time = node->expire;
 	uint32_t current_time = T->time;
 	
 	if ((time|TIME_NEAR_MASK)==(current_time|TIME_NEAR_MASK)) {
+		// 高位3字节都相同, 也就是最多低位1字节不同
+		// 就表示是个近时间, 最多需要 tick 255下就会走到的
 		link(&T->near[time&TIME_NEAR_MASK],node);
+
 	} else {
 		int i;
-		uint32_t mask=TIME_NEAR << TIME_LEVEL_SHIFT;
+		// 高位3字节, 共24位, 最多左移6位3次.
+		uint32_t mask = TIME_NEAR << TIME_LEVEL_SHIFT; 
+		//                                0100 0000   0000 0000B
+		//                    0001 0000   0000 0000   0000 0000B
+		//             0100   0000 0000   0000 0000   0000 0000B
+		// 0001   0000 0000   0000 0000   0000 0000   0000 0000B
+		//
+		// 对于时间的分段
+		//        3333 3322   2222 1111   1100 0000   nnnn nnnnB
+		// 近时间 nnnn nnnn
+		// 远时间 分成了4个象限, 每个象限64个节点
 		for (i=0;i<3;i++) {
 			if ((time|(mask-1))==(current_time|(mask-1))) {
 				break;
 			}
 			mask <<= TIME_LEVEL_SHIFT;
 		}
-
-		link(&T->t[i][((time>>(TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)) & TIME_LEVEL_MASK)],node);	
+		// i = 0, 1, 2, 3
+		// 如果没有 break, i=3
+		// i = 0
+		//        3333 3322   2222 1111   11XX XXXX   nnnn nnnnB
+		// i = 1
+		//        3333 3322   2222 XXXX   XX00 0000   nnnn nnnnB
+		// i = 2
+		//        3333 33XX   XXXX 1111   1100 0000   nnnn nnnnB
+		// i = 3
+		//        XXXX XX22   2222 1111   1100 0000   nnnn nnnnB
+		link(&T->t[i][((time>>(TIME_NEAR_SHIFT + i*TIME_LEVEL_SHIFT)) & TIME_LEVEL_MASK)],node);
 	}
 }
 
+// sz 就是 arg 的内存长度
+// time 指的是 delay time 延迟时间
 static void
 timer_add(struct timer *T,void *arg,size_t sz,int time) {
 	struct timer_node *node = (struct timer_node *)skynet_malloc(sizeof(*node)+sz);
-	memcpy(node+1,arg,sz);
+	memcpy(node+1,arg,sz);		// 这直接就+1了, 将arg的数据放到timer_node的尾部
 
 	SPIN_LOCK(T);
 
@@ -130,13 +163,40 @@ move_list(struct timer *T, int level, int idx) {
 	}
 }
 
+/**
+ * 一个32位无符号整型的重置
+ * 至少也要 
+ * 2^32 / 100 / 60 / 60 / 24 = 497.1026962962962962962962962963 .... 天
+*/
+
 static void
 timer_shift(struct timer *T) {
 	int mask = TIME_NEAR;
 	uint32_t ct = ++T->time;
 	if (ct == 0) {
+		// time 重置了!
+		// T->t[3][0] 需要重排
+		// i = 3
+		//        0000 0022   2222 1111   1100 0000   nnnn nnnnB
 		move_list(T, 3, 0);
 	} else {
+		// ct : current time 当前时间, 如果是整点状态才会满足while 如
+		//        XXXX XXXX   XXXX XXXX   XXTT TTTT   0000 0000
+		//        XXXX XXXX   XXXX TTTT   TT00 0000   0000 0000
+		//        XXXX XXTT   TTTT 0000   0000 0000   0000 0000
+		//        TTTT TT00   0000 0000   0000 0000   0000 0000
+		// time: 
+		//        3333 3322   2222 1111   11XX XXXX
+		//        3333 3322   2222 XXXX   XX
+		//        3333 33XX   XXXX
+		//        XXXX XX
+		// 从 time 能确定 TTTTTT 的值, 也就是 idx, 如果为 0 表示还可以进入下一个while, 不为零 则表示这一处的时间需要重排
+		// mask:
+		//        3333 3322   2222 1111   1100 0000   XXXX XXXX
+		//        3333 3322   2222 1111   11XX XXXX   XXXX XXXX
+		//        3333 3322   2222 XXXX   XXXX XXXX   XXXX XXXX
+		//        3333 33XX   XXXX XXXX   XXXX XXXX   XXXX XXXX
+		//        XXXX XXXX   XXXX XXXX   XXXX XXXX   XXXX XXXX
 		uint32_t time = ct >> TIME_NEAR_SHIFT;
 		int i=0;
 
@@ -163,6 +223,7 @@ dispatch_list(struct timer_node *current) {
 		message.data = NULL;
 		message.sz = (size_t)PTYPE_RESPONSE << MESSAGE_TYPE_SHIFT;
 
+		// 向注册定时器的服务发 RESPONSE 消息
 		skynet_context_push(event->handle, &message);
 		
 		struct timer_node * temp = current;
@@ -176,6 +237,7 @@ timer_execute(struct timer *T) {
 	int idx = T->time & TIME_NEAR_MASK;
 	
 	while (T->near[idx].head.next) {
+		// 直接从近时间链表中取了一条链下来
 		struct timer_node *current = link_clear(&T->near[idx]);
 		SPIN_UNLOCK(T);
 		// dispatch_list don't need lock T
@@ -189,7 +251,7 @@ timer_update(struct timer *T) {
 	SPIN_LOCK(T);
 
 	// try to dispatch timeout 0 (rare condition)
-	timer_execute(T);
+	timer_execute(T);		// 处理 timeout 0 的情况, 虽然这里说的是低概率, 但是 manager.lua 就干这种事情啊
 
 	// shift time first, and then dispatch timer message
 	timer_shift(T);
@@ -239,6 +301,12 @@ skynet_timeout(uint32_t handle, int time, int session) {
 		struct timer_event event;
 		event.handle = handle;
 		event.session = session;
+		/**
+		 * 一个 timer_node 一共存了三个数据
+		 * handle 	服务实例ID
+		 * session 	消息ID
+		 * expire 	终止时间
+		*/
 		timer_add(TI, &event, sizeof(event), time);
 	}
 
@@ -300,6 +368,8 @@ skynet_updatetime(void) {
 		TI->current += diff;		// 累计运行时间
 
 		// 根据流逝的厘秒量，执行逻辑
+		// current 先行
+		// 后面 TI->time 跟上
 		int i;
 		for (i=0;i<diff;i++) {
 			timer_update(TI);
@@ -308,7 +378,7 @@ skynet_updatetime(void) {
 }
 
 /**
- * 系统启动时间。单位：秒
+ * 系统启动时间点。单位：秒
 */
 uint32_t
 skynet_starttime(void) {
@@ -317,6 +387,9 @@ skynet_starttime(void) {
 
 /**
  * 系统运行时间。累计值，单位：厘秒
+ * 我们用64位存的厘秒, 关于它的重置时间, 要经过
+ * 2^64 / 100 / 60 / 60 / 24 / 365 = 5849424173.5507203247082699137494 .... 年
+ * 可以说几乎不会重置 (一开始的[0,99]误差也不会导致提前重置)
 */
 uint64_t 
 skynet_now(void) {
@@ -328,6 +401,10 @@ skynet_timer_init(void) {
 	TI = timer_create_timer();
 	uint32_t current = 0;
 	systime(&TI->starttime, &current);
+
+	// 因为这是唯一系统调用 systime 取的厘秒, 它的值范围在 [0,99] 之间
+	// 服务器启动时间 starttime 精度只算到秒
+	// 所以理论上, 服务器一启动, 我们已经累计运行了 current 个厘秒.
 	TI->current = current;					// 不太明白，这个累计运行时间为啥不从0开始算？？？
 	TI->current_point = gettime();
 }

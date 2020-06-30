@@ -20,7 +20,7 @@ struct handle_name {
 struct handle_storage {
 	struct rwlock lock;				// 读写锁
 
-	uint32_t harbor;				// 服务器ID，配置项
+	uint32_t harbor;				// 服务器ID，配置项. 又称为节点ID, 它会在服务标识的高8位显示.
 	uint32_t handle_index;			// 服务实例句柄，保证每个服务都是唯一标识的。每次创建新的服务实例时，该值会递增
 	int slot_size;					// 全局服务表的长度，永远是2的幂级数，且不超过HANDLE_MASK
 	struct skynet_context ** slot;	// 全局的服务表。[hash] = context

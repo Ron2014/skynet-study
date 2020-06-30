@@ -141,6 +141,12 @@ local function co_create(f)
 				coroutine_pool[#coroutine_pool+1] = co
 				-- recv new main function f
 				f = coroutine_yield "SUSPEND"
+
+				--[[
+					f(coroutine_yield()) 语义:
+					local args = {coroutine_yield()}
+					f(args)
+				]]
 				f(coroutine_yield())
 			end
 		end)
@@ -170,7 +176,7 @@ end
 -- suspend is local function
 function suspend(co, result, command)
 	if not result then
-		-- co_create保证协程始终有yield返回，不可能返回false
+		-- co_create 保证协程始终有yield返回，不可能返回false
 		local session = session_coroutine_id[co]
 		if session then -- coroutine may fork by others (session is nil)
 			local addr = session_coroutine_address[co]

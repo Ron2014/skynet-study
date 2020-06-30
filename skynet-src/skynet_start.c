@@ -160,7 +160,7 @@ thread_timer(void *p) {
 		skynet_socket_updatetime();
 		CHECK_ABORT
 		wakeup(m,m->count-1);			// 确保工作线程满负荷运行
-		usleep(2500);
+		usleep(2500);					// 每2500微妙/2.5毫秒跑一次, 每4次for循环计数一次
 		if (SIG) {
 			signal_hup();
 			SIG = 0;
