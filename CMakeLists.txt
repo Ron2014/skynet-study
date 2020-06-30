@@ -7,11 +7,13 @@ project(skynet-study)
 get_filename_component(FIPS_ROOT_DIR "../fips" ABSOLUTE)
 include("${FIPS_ROOT_DIR}/cmake/fips.cmake")
 
-# include_directories(src)
-fips_setup()
-
 fips_include_directories(3rd/lua)
 fips_include_directories(3rd/jemalloc/include)
+fips_include_directories(3rd/jemalloc/include/jemalloc)
+fips_include_directories(skynet-src)
+
+# include_directories(src)
+fips_setup()
 
 fips_ide_group(Ext)
 fips_add_subdirectory(3rd)
