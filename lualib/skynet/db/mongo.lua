@@ -8,6 +8,7 @@ local crypt = require "skynet.crypt"
 local rawget = rawget
 local assert = assert
 local table = table
+local default_auth = "mongodb_cr"
 
 local bson_encode =	bson.encode
 local bson_encode_order	= bson.encode_order
@@ -19,6 +20,15 @@ mongo.null = assert(bson.null)
 mongo.maxkey = assert(bson.maxkey)
 mongo.minkey = assert(bson.minkey)
 mongo.type = assert(bson.type)
+
+local function dump(t, prefix)
+	for k,v in pairs(t) do
+		print(prefix, k, v)
+		if type(v) == "table" then
+			dump(v, prefix .. "." .. k)
+		end
+	end
+end
 
 local mongo_cursor = {}
 local cursor_meta =	{
@@ -87,7 +97,7 @@ local auth_method = {}
 local function mongo_auth(mongoc)
 	local user = rawget(mongoc,	"username")
 	local pass = rawget(mongoc,	"password")
-	local authmod = rawget(mongoc, "authmod") or "scram_sha1"
+	local authmod = rawget(mongoc, "authmod") or default_auth
 	authmod = "auth_" ..  authmod
 	local authdb = rawget(mongoc, "authdb")
 	if authdb then
@@ -96,7 +106,7 @@ local function mongo_auth(mongoc)
 
 	return function()
 		if user	~= nil and pass	~= nil then
-			-- autmod can be "mongodb_cr" or "scram_sha1"
+			-- autmod can be "mongodb_cr" or default_auth
 			local auth_func = auth_method[authmod]
 			assert(auth_func , "Invalid authmod")
 			assert(auth_func(authdb or mongoc, user, pass))
@@ -308,8 +318,21 @@ function mongo_client:logout()
 	return result.ok ==	1
 end
 
+--[[
+	用户验证接口，返回 bool
+	密码一共有2种加密方式
+	1. 旧版 MongoDB-CR
+	2. 新版 SCRAM (Salted Challenge Response Authentication Mechanism)
+	https://docs.mongodb.com/manual/release-notes/3.0-scram/
+
+	分别对应接口
+	1. auth_mongodb_cr
+	2. auth_scram_sha1
+
+	demo默认auth_scram_sha1，我添加了default_auth来指定
+]]
 function mongo_db:auth(user, pass)
-	local authmod = rawget(self.connection, "authmod") or "scram_sha1"
+	local authmod = rawget(self.connection, "authmod") or default_auth
 	local auth_func = auth_method["auth_" .. authmod]
 	assert(auth_func , "Invalid authmod")
 	return auth_func(self, user, pass)
@@ -502,6 +525,12 @@ local function createIndex_onekey(self, key, option)
 	end
 	local k,v = next(key)	-- support only one key
 	assert(next(key,k) == nil, "Use new api for multi-keys")
+	-- print("---doc")
+	-- dump(doc)
+	-- print("---key")
+	-- dump(key)
+	-- print("---")
+	-- print(doc.name, k, v)
 	doc.name = doc.name or (k .. "_" .. v)
 	doc.key = key
 
@@ -533,7 +562,9 @@ local function IndexModel(option)
 		name = name  .. "_" .. v
 	end
 	assert(name, "Need keys")
-
+	-- dump(doc)
+	-- dump(keys)
+	-- print(name, doc.name)
 	doc.name = doc.name or name
 	doc.key = bson_encode_order(table.unpack(keys))
 
