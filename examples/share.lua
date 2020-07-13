@@ -1,5 +1,8 @@
+-- 1. ./skynet example/config
+-- 2. share
+-- 利用 console 服务对 stdin 的处理来启动该服务
 local skynet = require "skynet"
-local sharedata = require "skynet.sharedata"
+local sharedata = require "skynet.sharedata"	-- 1. suspend
 
 local mode = ...
 
@@ -7,12 +10,12 @@ if mode == "host" then
 
 skynet.start(function()
 	skynet.error("new foobar")
-	sharedata.new("foobar", { a=1, b= { "hello",  "world" } })
+	sharedata.new("foobar", { a=1, b= { "hello",  "world" } })	-- 3. suspend
 
 	skynet.fork(function()
-		skynet.sleep(200)	-- sleep 2s
+		skynet.sleep(200)	-- sleep 2s				5. suspend
 		skynet.error("update foobar a = 2")
-		sharedata.update("foobar", { a =2 })
+		sharedata.update("foobar", { a =2 })		--
 		skynet.sleep(200)	-- sleep 2s
 		skynet.error("update foobar a = 3")
 		sharedata.update("foobar", { a = 3, b = { "change" } })
@@ -24,11 +27,12 @@ end)
 
 else
 
-
+-- SERVICE_NAME loader.lua 注册的
+-- 值就是服务名, 在这里就是 share
 skynet.start(function()
-	skynet.newservice(SERVICE_NAME, "host")
+	skynet.newservice(SERVICE_NAME, "host")		-- 2. suspend
 
-	local obj = sharedata.query "foobar"
+	local obj = sharedata.query "foobar"		-- 4. suspend
 
 	local b = obj.b
 	skynet.error(string.format("a=%d", obj.a))
@@ -48,7 +52,7 @@ skynet.start(function()
 	end
 
 	for i = 1, 5 do
-		skynet.sleep(100)
+		skynet.sleep(100)						-- 6. suspend
 		skynet.error("second " ..i)
 		for k,v in pairs(obj) do
 			skynet.error(string.format("%s = %s", k , tostring(v)))

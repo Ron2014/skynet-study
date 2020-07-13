@@ -129,6 +129,7 @@ init_cb(struct snlua *l, struct skynet_context *ctx, const char * args, size_t s
 	assert(lua_gettop(L) == 1);
 
 	// 加载 ./lualib/loader.lua 到虚拟机，此时生成了一个lua chunk
+	// 也就是说, 对于每个 snlua 服务, 都会执行一次 lualoader 文件
 	const char * loader = optstring(ctx, "lualoader", "./lualib/loader.lua");
 	int r = luaL_loadfile(L,loader);
 	if (r != LUA_OK) {
@@ -136,7 +137,7 @@ init_cb(struct snlua *l, struct skynet_context *ctx, const char * args, size_t s
 		report_launcher_error(ctx);
 		return 1;
 	}
-	// 参数压栈，通常为 ./service/?.lua 的lua服务文件
+	// 参数压栈, 让 loader 可以从 ... 拿到传过来的参数
 	lua_pushlstring(L, args, sz);
 	r = lua_pcall(L,1,0,1);
 	if (r != LUA_OK) {

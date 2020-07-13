@@ -691,6 +691,7 @@ cmd_launch(struct skynet_context *context, const char *param)
     char *mod = strsep(&args, " \t\r\n");   // 第一个参数：模块名
     args = strsep(&args, "\r\n");           // 第二个参数：模块实例化成服务时，init要用到的参数
     // args被自身覆盖，即忽略了换行符后面的参数。但是空格、制表符连接的参数还是接受的
+    // 通常为服务名
 
     struct skynet_context *inst = skynet_context_new(mod, args);
     if (inst == NULL)
