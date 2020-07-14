@@ -192,6 +192,37 @@ end
 function test_aggregate()
 end
 
+function test_filter()
+	local db = _create_client()
+
+	db[db_name].testdb:dropIndex("*")
+	db[db_name].testdb:drop()
+
+	for i=1,2000 do
+		db[db_name].testdb:safe_insert({roleId=i, type=math.random(4), fighting=math.random(1,1000)})
+	end
+
+	for i=1,2000 do
+		db[db_name].testdb:safe_insert({roleId=i, type=math.random(4)})
+	end
+
+	local except_role = 1049
+	local minFighting = 204
+	local maxFighting = 508
+	local type_ = 2
+	local cursor = db[db_name].testdb:find({
+		type = type_,
+		roleId = { ["$ne"] = except_role },
+		fighting = { ["$exists"] = true, ["$gte"] = minFighting, ["$lt"] = maxFighting},
+	}, {roleId = 1, fighting = 1})
+
+	while cursor:hasNext() do
+		local node = cursor:next()
+		print("roleId=", node.roleId, "fighting=", node.fighting)
+	end
+
+end
+
 skynet.start(function()
 	if username then
 		print("Test auth")
@@ -205,7 +236,9 @@ skynet.start(function()
 	test_find_and_remove()
 	print("Test aggregate")
 	test_aggregate()
-	print("Test expire index")
-	test_expire_index()
-	print("mongodb test finish.");
+	print("Test find")
+	test_filter()
+	-- print("Test expire index")
+	-- test_expire_index()
+	print("mongodb test finish.")
 end)
