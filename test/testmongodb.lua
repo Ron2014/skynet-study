@@ -199,11 +199,11 @@ function test_filter()
 	db[db_name].testdb:drop()
 
 	for i=1,2000 do
-		db[db_name].testdb:safe_insert({roleId=i, type=math.random(4), fighting=math.random(1,1000)})
+		db[db_name].testdb:safe_insert({roleId=i, type=math.random(4), score=math.random(1,1000), fighting=math.random(1,1000)})
 	end
 
 	for i=1,2000 do
-		db[db_name].testdb:safe_insert({roleId=i, type=math.random(4)})
+		db[db_name].testdb:safe_insert({roleId=i, type=math.random(4), score=math.random(1,1000)})
 	end
 
 	local except_role = 1049
@@ -214,11 +214,11 @@ function test_filter()
 		type = type_,
 		roleId = { ["$ne"] = except_role },
 		fighting = { ["$exists"] = true, ["$gte"] = minFighting, ["$lt"] = maxFighting},
-	}, {roleId = 1, fighting = 1})
+	}, {roleId = 1, fighting = 1, score = 1}):sort({fighting=1, score=-1})
 
 	while cursor:hasNext() do
 		local node = cursor:next()
-		print("roleId=", node.roleId, "fighting=", node.fighting)
+		print("roleId=", node.roleId, "fighting=", node.fighting, "score=", node.score)
 	end
 
 end
