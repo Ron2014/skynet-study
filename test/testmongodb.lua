@@ -125,7 +125,9 @@ function test_find_and_remove()
 	local ret = db[db_name].testdb:findOne({test_key2 = 1})		-- 匹配第一条
 	assert(ret and ret.test_key2 == 1, err)
 
-	local ret = db[db_name].testdb:find({test_key2 = {['$gt'] = 0}}):sort({test_key = 1}, {test_key2 = -1}):skip(1):limit(1)
+	local ret = db[db_name].testdb:find({
+		test_key2 = {['$lt'] = 100}
+	}):sort({test_key = 1}, {test_key2 = -1}):skip(1):limit(1)
 	-- 1 2 - skip
 	-- 1 1 ---- limit 1
 	-- 2 3
@@ -184,14 +186,48 @@ function test_expire_index()
 end
 
 --[[
-	聚合查询
-	$group
-	$sort
-	$limit
+	比较函数
 ]]
-function test_aggregate()
+function test_compare()
+	local db = _create_client()
+
+	db[db_name].testdb:dropIndex("*")
+	db[db_name].testdb:drop()
+
+	db[db_name].testdb:ensureIndex({{type = 1}, {fighting = 1}})
+
+	for i=1,2000 do
+		local ok, err, ret = db[db_name].testdb:safe_insert({type = math.random(4), roleId = i, score = math.random(1, 1000), fighting = math.random(1,1000)})
+		assert(ok and ret and ret.n == 1, err)
+	end
+
+	for i=2001, 4000 do
+		local ok, err, ret = db[db_name].testdb:safe_insert({type = math.random(4), roleId = i, score = math.random(1, 1000)})
+		assert(ok and ret and ret.n == 1, err)
+	end
+
+	local minFighting = 208
+	local maxFighting = 503
+	local roleId = 1049
+	local type_ = 2
+	local cursor = db[db_name].testdb:find({
+		type = type_,
+		roleId = {["$ne"] = roleId},
+		fighting = {["$gte"] = minFighting, ["$lt"] = maxFighting},
+	})
+
+	while cursor:hasNext() do
+		local node = cursor:next()
+		print("roleId=", node.roleId, "fighting=", node.fighting, "score=", node.score)
+	end
 end
 
+--[[
+	过滤数据
+	大小值比较
+	字段是否存在
+	字段是否为null
+]]
 function test_filter()
 	local db = _create_client()
 
@@ -220,7 +256,41 @@ function test_filter()
 		local node = cursor:next()
 		print("roleId=", node.roleId, "fighting=", node.fighting, "score=", node.score)
 	end
+end
 
+--[[
+	正则表达式测试(模糊查找)
+]]
+function test_regex()
+	local db = _create_client()
+
+	db[db_name].testdb:dropIndex("*")
+	db[db_name].testdb:drop()
+
+	db[db_name].testdb:ensureIndex({{name = 1}})
+
+	for i=1,10 do
+		local ok, err, ret = db[db_name].testdb:safe_insert({name = string.format("TEST%08d", i)})
+		assert(ok and ret and ret.n == 1, err)
+	end
+
+	-- 不支持 / ... / 的写法, 无法动态识别正则表达式
+	-- { name = "/^TEST/" } 无效
+	local cursor = db[db_name].testdb:find({name={["$regex"]="^TEST\\d{8}$"}}, {name = 1})
+	-- local cursor = db[db_name].testdb:find({name="/^TEST\\d{8}$/"}, {name = 1})
+	while cursor:hasNext() do
+		local node = cursor:next()
+		print("name=", node.name)
+	end
+end
+
+--[[
+	聚合查询
+	$group
+	$sort
+	$limit
+]]
+function test_aggregate()
 end
 
 skynet.start(function()
@@ -238,6 +308,9 @@ skynet.start(function()
 	test_aggregate()
 	print("Test find")
 	test_filter()
+	test_compare()
+	print("Test regex")
+	test_regex()
 	-- print("Test expire index")
 	-- test_expire_index()
 	print("mongodb test finish.")
