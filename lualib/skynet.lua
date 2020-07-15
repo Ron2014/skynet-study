@@ -417,8 +417,8 @@ end
 ]]
 
 function skynet.call(addr, typename, ...)
-	skynet.error("--skynet.call")
-	skynet.error(debug.traceback())
+	-- skynet.error("--skynet.call")
+	-- skynet.error(debug.traceback())
 	local tag = session_coroutine_tracetag[running_thread]
 	if tag then
 		c.trace(tag, "call", 2)
