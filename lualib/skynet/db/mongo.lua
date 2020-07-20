@@ -11,7 +11,14 @@ local table = table
 local default_auth = "mongodb_cr"
 
 local bson_encode =	bson.encode
+
 local bson_encode_order	= bson.encode_order
+--[[
+	bson_encode_order 的作用就是, 将一组序列
+	{ k1, v1, k2, v2, k3, v3 ...} 组织成
+	{ {k1=v1}, {k2=v2}, {k3=v3}, ...} 的二进制json
+]]
+
 local bson_decode =	bson.decode
 local empty_bson = bson_encode {}
 
@@ -196,7 +203,7 @@ function mongo_client:getDB(dbname)
 		name = dbname,
 		full_name =	dbname,
 		database = false,
-		__cmd =	dbname .. "." .. "$cmd",
+		__cmd =	dbname .. "." .. "$cmd",	-- 隐含集合
 	}
 	db.database	= db
 
@@ -217,6 +224,10 @@ function mongo_client:genId()
 	return id
 end
 
+--[[
+	不同于 database:runCommand
+	mongo_client 的 runCommand 默认执行在 admin 数据库上
+]]
 function mongo_client:runCommand(...)
 	if not self.admin then
 		self.admin = self:getDB	"admin"
@@ -338,16 +349,31 @@ function mongo_db:auth(user, pass)
 	return auth_func(self, user, pass)
 end
 
+--[[
+	safe_xxxx 的核心函数, 主要有
+	safe_insert
+	safe_update
+	safe_delete
+	相较于一般的 insert/update/delete, 他们添加了返回值: OK状态, ERR信息, runCommand的完整返回值
+
+	cmd 字符串. 表示某个操作
+	cmd_v 字符串. 表示集合名称
+]]
 function mongo_db:runCommand(cmd,cmd_v,...)
 	local conn = self.connection
 	local request_id = conn:genId()
 	local sock = conn.__sock
 	local bson_cmd
+
 	if not cmd_v then
 		bson_cmd = bson_encode_order(cmd,1)
 	else
 		bson_cmd = bson_encode_order(cmd,cmd_v,...)
 	end
+
+	--[[
+		self.__cmd 为隐含集合 $cmd
+	]]
 	local pack = driver.query(request_id, 0, self.__cmd, 0,	1, bson_cmd)
 	-- we must hold	req	(req.data),	because	req.document is	a lightuserdata, it's a	pointer	to the string (req.data)
 	local req =	sock:request(pack, request_id)
@@ -397,6 +423,14 @@ function mongo_collection:safe_insert(doc)
 	return werror(r)
 end
 
+--[[
+	docs: 文档数组
+	{
+		{xxx = xxx, ...},
+		{xxx = xxx, ...},
+		{xxx = xxx, ...},
+	}
+]]
 function mongo_collection:batch_insert(docs)
 	for	i=1,#docs do
 		if docs[i]._id == nil then
@@ -467,6 +501,16 @@ function mongo_collection:find(query, selector)
 	} ,	cursor_meta)
 end
 
+--[[
+	1个key就是一个k-v对的table
+	将 k v 拆出来塞入list
+	最后 list 的结构成了:
+	{
+		k1, v1,
+		k2, v2,
+		k3, v3,
+	}
+]]
 local function unfold(list, key, ...)
 	if key == nil then
 		return list
@@ -479,6 +523,10 @@ local function unfold(list, key, ...)
 end
 
 -- cursor:sort { key = 1 } or cursor:sort( {key1 = 1}, {key2 = -1})
+--[[
+	支持将排序索引拆开来写, 不用外面套一层括号
+	cursor:sort({key1=1}, {key2=-1})
+]]
 function mongo_cursor:sort(key, key_v, ...)
 	if key_v then
 		local key_list = unfold({}, key, key_v , ...)
@@ -515,9 +563,11 @@ function mongo_cursor:count(with_limit_and_skip)
 	return ret.n
 end
 
-
 -- For compatibility.
 -- collection:createIndex({username = 1}, {unique = true})
+--[[
+	仅支持1个key的索引
+]]
 local function createIndex_onekey(self, key, option)
 	local doc = {}
 	for k,v in pairs(option) do
@@ -537,7 +587,15 @@ local function createIndex_onekey(self, key, option)
 	return self.database:runCommand("createIndexes", self.name, "indexes", {doc})
 end
 
+--[[
+	option 结构:
+	{ { key1 = 1}, { key2 = 1 },  unique = true }
+	{ "key1", "key2",  unique = true }
 
+	同时存在数组部分和哈希部分
+	数组部分: 键(支持组合)
+	哈希部分: 索引属性
+]]
 local function IndexModel(option)
 	local doc = {}
 	for k,v in pairs(option) do
@@ -571,22 +629,42 @@ local function IndexModel(option)
 	return doc
 end
 
--- collection:createIndex { { key1 = 1}, { key2 = 1 },  unique = true }
+-- 创建1个索引
+-- 复合键
+-- collection:createIndex { { key1 = 1}, { key2 = 1 },  unique = true }								-- =-1 没有实际意义
 -- or collection:createIndex { "key1", "key2",  unique = true }
--- or collection:createIndex( { key1 = 1} , { unique = true } )	-- For compatibility
-function mongo_collection:createIndex(arg1 , arg2)
-	if arg2 then
-		return createIndex_onekey(self, arg1, arg2)
+-- or collection:createIndex( { key1 = 1} , { key2 = -1}, { unique = true, name = "key_name" } )	-- 支持去括号
+-- or collection:createIndex( "key1" , "key2", { unique = true, name = "key_name" } )
+-- 单键
+-- or collection:createIndex( { key1 = 1} , { unique = true } )					-- 单键的索引
+function mongo_collection:createIndex(arg1, ...)
+	local argM = {...}
+	if #argM > 0 then
+		if #argM == 1 then
+			return createIndex_onekey(self, arg1, argM[1])
+		else
+			local option = table.remove(argM, #argM)
+			table.insert(option, arg1)
+			for _, arg in ipairs(argM) do
+				table.insert(option, arg)
+			end
+			return self.database:runCommand("createIndexes", self.name, "indexes", { IndexModel(option) })
+		end
 	else
+		-- IndexModel(arg1) 返回1个 doc
 		return self.database:runCommand("createIndexes", self.name, "indexes", { IndexModel(arg1) })
 	end
 end
 
+-- 同时创建多个索引
+-- collection:createIndexes( { key1 = 1}, { key2 = 1 }, {unique = true } )
 function mongo_collection:createIndexes(...)
 	local idx = { ... }
 	for k,v in ipairs(idx) do
 		idx[k] = IndexModel(v)
 	end
+	-- idx 是 {IndexModel(arg[1]), IndexModel(arg[2]), IndexModel(arg[1]), ...}
+	-- 即文档数组
 	return self.database:runCommand("createIndexes", self.name, "indexes", idx)
 end
 
@@ -603,17 +681,22 @@ function mongo_collection:dropIndex(indexName)
 end
 
 -- collection:findAndModify({query = {name = "userid"}, update = {["$inc"] = {nextid = 1}}, })
--- keys, value type
--- query, table
--- sort, table
--- remove, bool
--- update, table
--- new, bool
--- fields, bool
--- upsert, boolean
+----------------------------|
+-- keys		|	value type	|
+----------------------------|
+-- query	| 	table
+-- sort		|	table
+-- remove	|	bool
+-- update	|	table
+-- new		|	bool
+-- fields	|	bool
+-- upsert	|	boolean
+----------------------------
 function mongo_collection:findAndModify(doc)
 	assert(doc.query)
 	assert(doc.update or doc.remove)
+	-- query for update
+	-- query for remove
 
 	local cmd = {"findAndModify", self.name};
 	for k, v in pairs(doc) do
