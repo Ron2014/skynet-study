@@ -106,8 +106,9 @@ function test_find_and_remove()
 
 	-- 复合索引，就算-1一样也是设置
 	-- ensureIndex 最多接收2个参数, 最后那个table不起作用, 所以不会指定索引为unique
-	db[db_name].testdb:ensureIndex({test_key = 1}, {test_key2 = -1}, {unique = true, name = "test_index"})
+	-- db[db_name].testdb:ensureIndex({test_key = 1}, {test_key2 = -1}, {unique = true, name = "test_index"})
 	-- db[db_name].testdb:ensureIndex({{test_key = 1}, {test_key2 = -1}, unique = true, name = "test_index"})
+	db[db_name].testdb:ensureIndex("test_key", "test_key2", {unique = true, name = "test_index"})
 
 	local ok, err, ret = db[db_name].testdb:safe_insert({test_key = 1, test_key2 = 1})
 	assert(ok and ret and ret.n == 1, err)
@@ -294,23 +295,23 @@ function test_aggregate()
 end
 
 skynet.start(function()
-	if username then
-		print("Test auth")
-		test_auth()
-	end
-	print("Test insert without index")
-	test_insert_without_index()
-	print("Test insert index")
-	test_insert_with_index()
+	-- if username then
+	-- 	print("Test auth")
+	-- 	test_auth()
+	-- end
+	-- print("Test insert without index")
+	-- test_insert_without_index()
+	-- print("Test insert index")
+	-- test_insert_with_index()
 	print("Test find and remove")
 	test_find_and_remove()
-	print("Test aggregate")
-	test_aggregate()
-	print("Test find")
-	test_filter()
-	test_compare()
-	print("Test regex")
-	test_regex()
+	-- print("Test aggregate")
+	-- test_aggregate()
+	-- print("Test find")
+	-- test_filter()
+	-- test_compare()
+	-- print("Test regex")
+	-- test_regex()
 	-- print("Test expire index")
 	-- test_expire_index()
 	print("mongodb test finish.")
