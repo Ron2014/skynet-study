@@ -81,7 +81,16 @@ function struct:cleardirty(key)
     return ret
 end
 
--- for db
+-- for FROM_DB property
+-- allow sync partly
+function struct:load(data)
+    for k, val in pairs(data) do
+        assert(self.Selector[k], string.format("%s:%s is not FROM_DB of %s", k, type(val), self.class.__cname))
+        rpctype.load(self, k, val)
+    end
+end
+
+-- for TO_DB property
 function struct:save()
     -- clear all dirty
     for k, _ in pairs(self.dirtyAttr_) do
@@ -106,27 +115,24 @@ function struct:save()
 		target[k] = rpctype.serialize(self, k)
     end
 
-    return target, settor
+    return settor, target
 end
 
+-- for all property
 function struct:deserialize(data)
-    for k, v in pairs(self.Attr) do
-        local rt = rpctype[v.type]
-        local inner = string.format("%s__", k)
-        local val = data[k]
-        if rt._check and not rt._check(val) then
-            error(string.format("bad argument %s, expected %s, but got %s", k, v.type, type(val)))
-        end
-        self[inner] = rt._deserialize(val)
+    for k, val in pairs(data) do
+        rpctype.deserialize(self, k, val)
     end
 end
 
 function struct:serialize()
     local data = {}
     for k, v in pairs(self.Attr) do
-        local rt = rpctype[v.type]
-        local val = self[k](self)
-        data[k] = rt._serialize(val)
+        if v.attr == "public" then
+            local rt = rpctype[v.type]
+            local val = self[k](self)
+            data[k] = rt._serialize(val)
+        end
     end
     return data
 end

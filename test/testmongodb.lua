@@ -313,8 +313,8 @@ local function format_table(t)
 end
 
 function test_item()
-	local Item = require("class.item_t")
 	local db = _create_client()
+	local Item = require("class.item_t")
 	local collection = db[db_name][Item.Collection]
 
 	collection:dropIndex("*")
@@ -331,9 +331,10 @@ function test_item()
 		item:idx(i)
 		item:num(1)
 
-		-- print("insert", format_table(item:serialize()))
-		-- local ok, err, ret = collection:safe_insert(item:serialize())
-		local ok, err, ret = collection:safe_insert(item:serialize())
+		local data = item:serialize()
+		print("create", format_table(data))
+		-- local ok, err, ret = collection:safe_insert(data)
+		local ok, err, ret = collection:safe_insert(data)
 		print(ok, err)
 		print(format_table(ret))
 	end
@@ -344,24 +345,40 @@ function test_item()
 		num = { ["$gt"] = 0, },
 	}
 
-	local cursor = db[db_name][Item.Collection]:find(query, Item.Selector)
+	local cursor = collection:find(query, Item.Selector)
 	local result = {}
 
 	while cursor:hasNext() do
 		local node = cursor:next()
 		local item = Item.new()
 		item:deserialize(node)
-		print(format_table(item:serialize()))
+		print("retrieve", format_table(item:serialize()))
 
 		item:num(10)
 	
-		local query, settor = item:save()
+		local settor, query = item:save()
 		if settor then
 			table.insert(result, {query=query, settor=settor})
 		end
 	end
 
 	-- update
+	for _, node in pairs(result) do
+		print("update query", format_table(node.query))
+		print("update settor", format_table(node.settor))
+		local ok, err, ret = collection:safe_update(node.query, {["$set"] = node.settor }, false, false)
+		print(ok, err)
+		print(format_table(ret))
+	end
+
+	-- retrieve
+	cursor = collection:find(query, Item.Selector)
+	while cursor:hasNext() do
+		local node = cursor:next()
+		local item = Item.new()
+		item:deserialize(node)
+		print("retrieve", format_table(item:serialize()))
+	end
 end
 
 function test_cursor_size()

@@ -328,6 +328,10 @@ function skynet.time()
 	return skynet.now()/100 + (starttime or skynet.starttime())
 end
 
+function skynet.timestamp()
+	return math.floor(skynet.time())
+end
+
 function skynet.exit()
 	fork_queue = {}	-- no fork coroutine can be execute after skynet.exit
 	skynet.send(".launcher","lua","REMOVE",skynet.self(), false)

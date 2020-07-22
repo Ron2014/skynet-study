@@ -1,5 +1,4 @@
 local attrdef = require "class.attrdef"
-local bson = require "bson"
 
 local itemdoc = {}
 itemdoc.CollectionName = "Item"
@@ -8,55 +7,55 @@ itemdoc.Attr = {
 		type = "objectid",
 		default = nil,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TARGET_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	pid = {
-		type = "int64",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	host = {
-		type = "int32",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	idx = {
-		type = "int32",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	num = {
-		type = "int32",
+		type = "int",
 		default = 1,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	price = {
 		type = "double",
 		default = 19.26,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	valid = {
 		type = "boolean",
 		default = true,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	over = {
 		type = "timestamp",
-		default = 0,
+		default = nil,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 	tm = {
 		type = "date",
-		default = 0,
+		default = nil,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
+		attr = "public",
 	},
 }
 
