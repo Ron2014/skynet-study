@@ -12,15 +12,20 @@ assert(arg.n <= 2)
 local ip = (arg.n == 2 and arg[1] or "127.0.0.1")
 local port = tonumber(arg[arg.n])
 
-local COMMAND = {}
-local COMMANDX = {}
+local COMMAND = {}		-- 基础命令
+local COMMANDX = {}		-- 扩展命令
 
+-- 将散列表转换成一条字符串
 local function format_table(t)
+	-- 对散列表的 key 进行升序
 	local index = {}
 	for k in pairs(t) do
 		table.insert(index, k)
 	end
 	table.sort(index, function(a, b) return tostring(a) < tostring(b) end)
+
+	-- 生成 key:value
+	-- 最后1个t, 代表一行 entry 信息
 	local result = {}
 	for _,v in ipairs(index) do
 		table.insert(result, string.format("%s:%s",v,tostring(t[v])))
@@ -28,6 +33,7 @@ local function format_table(t)
 	return table.concat(result,"\t")
 end
 
+-- 将一行信息打印, value 即 entry
 local function dump_line(print, key, value)
 	if type(value) == "table" then
 		print(key, format_table(value))
@@ -36,17 +42,22 @@ local function dump_line(print, key, value)
 	end
 end
 
+-- 将一个散列表的内容一行行打印
 local function dump_list(print, list)
 	local index = {}
 	for k in pairs(list) do
 		table.insert(index, k)
 	end
 	table.sort(index, function(a, b) return tostring(a) < tostring(b) end)
+
+	-- 将散列表转成数组, 按 key 升序
+	-- 逐行输出
 	for _,v in ipairs(index) do
 		dump_line(print, v, list[v])
 	end
 end
 
+-- 对命令行按空格分割
 local function split_cmdline(cmdline)
 	local split = {}
 	for i in string.gmatch(cmdline, "%S+") do
@@ -66,7 +77,7 @@ local function docmd(cmdline, print, fd)
 		cmd = COMMANDX[command]
 		if cmd then
 			split.fd = fd
-			split[1] = cmdline
+			split[1] = cmdline	-- 完整命令行
 			ok, list = pcall(cmd, split)
 		else
 			print("Invalid command, type help for command list")
@@ -169,6 +180,24 @@ function COMMAND.clearcache()
 	codecache.clear()
 end
 
+--[[
+	启动服务的几个方法
+1. COMMAND.start
+
+skynet.newservice
+本质是通知 .launcher 服务通过 LAUNCH 方式 启动 snlua
+
+2. COMMAND.log
+
+skynet.call, ".launcher", "lua", "LOGLAUNCH", "snlua", ...
+.launcher 服务的 LOGLAUNCH 方式, 也就是 log 了服务实例句柄
+
+3. COMMAND.snax
+
+snax.newservice	
+
+4. 
+]]
 function COMMAND.start(...)
 	local ok, addr = pcall(skynet.newservice, ...)
 	if ok then
@@ -205,20 +234,25 @@ function COMMAND.snax(...)
 	end
 end
 
+-- standalone 模式下会启动 SERVICE 单点服务
+-- 使用 SERVICE 服务列出所有服务
 function COMMAND.service()
 	return skynet.call("SERVICE", "lua", "LIST")
 end
 
 local function adjust_address(address)
 	local prefix = address:sub(1,1)
-	if prefix == '.' then
+	if prefix == '.' then		-- 单点服务的名称
 		return assert(skynet.localname(address), "Not a valid name")
-	elseif prefix ~= ':' then
+	elseif prefix ~= ':' then	-- 单点服务的句柄
 		address = assert(tonumber("0x" .. address), "Need an address") | (skynet.harbor(skynet.self()) << 24)
 	end
 	return address
 end
 
+--[[
+	因为所有服务都会通过 launcher 启动
+]]
 function COMMAND.list()
 	return skynet.call(".launcher", "lua", "LIST")
 end

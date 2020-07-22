@@ -14,6 +14,7 @@ end
 
 local NORET = {}
 
+-- 列出所有服务
 function command.LIST()
 	local list = {}
 	for k,v in pairs(services) do
@@ -22,10 +23,11 @@ function command.LIST()
 	return list
 end
 
+-- 统计信息
 function command.STAT()
 	local list = {}
 	for k,v in pairs(services) do
-		local ok, stat = pcall(skynet.call,k,"debug","STAT")
+		local ok, stat = pcall(skynet.call, k, "debug", "STAT")
 		if not ok then
 			stat = string.format("ERROR (%s)",v)
 		end

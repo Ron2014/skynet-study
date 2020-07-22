@@ -6,35 +6,35 @@ itemdoc.Attr = {
 	sn = {
 		type = "string",
 		default = "0",
-		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_UPDATE_DB,
+		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TARGET_DB,
 		attr = "protected",
 	},
 	id = {
-		type = "uint",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	pid = {
-		type = "uint",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	host = {
-		type = "uint",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	idx = {
-		type = "uint",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	num = {
-		type = "uint",
+		type = "int",
 		default = 1,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
@@ -43,7 +43,7 @@ itemdoc.Attr = {
 	-- USE_TIME		over == 0 / > 0		有效期
 	-- REMAIN_TIME	over == 0 / > 0		剩余时间
 	over = {
-		type = "uint",
+		type = "int",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
@@ -61,5 +61,7 @@ itemdoc.Attr = {
 		attr = "protected",
 	},
 }
+
+
 
 return itemdoc

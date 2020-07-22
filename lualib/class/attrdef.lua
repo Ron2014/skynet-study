@@ -1,8 +1,9 @@
 local attrdef = {}
 
-attrdef.FLAG_TO_DB 		= 0x0001
-attrdef.FLAG_FROM_DB 	= 0x0002
-attrdef.FLAG_TARGET_DB  = 0x0004
+attrdef.FLAG_TO_DB 		= 0x0001	-- update settor
+attrdef.FLAG_FROM_DB 	= 0x0002	-- selector
+attrdef.FLAG_TARGET_DB  = 0x0004	-- update target
+attrdef.FLAG_CACHED  	= 0x0008	-- hot property
 
 function class(classname, super)
     local cls
