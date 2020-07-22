@@ -12,7 +12,7 @@ end
 rpctype.int32 = {
     _check = function(data)
         local ty, val = bson.type(data)
-        if ty ~= "number" then return false end
+        if ty ~= "integer" then return false end
         return true
     end,
     _deserialize = function(data)
@@ -27,7 +27,7 @@ rpctype.int32 = {
 rpctype.int64 = {
     _check = function(data)
         local ty, val = bson.type(data)
-        if ty ~= "number" then return false end
+        if ty ~= "integer" then return false end
         return true
     end,
     _deserialize = function(data)
@@ -42,7 +42,7 @@ rpctype.int64 = {
 rpctype.double = {
     _check = function(data)
         local ty, val = bson.type(data)
-        if ty ~= "number" then return false end
+        if ty ~= "double" then return false end
         return true
     end,
     _deserialize = function(data)

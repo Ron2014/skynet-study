@@ -1159,7 +1159,9 @@ ltype(lua_State *L) {
 	int type = 0;
 	switch (t) {
 	case LUA_TNUMBER:
-		type = 1;
+		if (lua_isinteger(L, 1)) type = 14;
+		else type = 1;
+		// type = 1;
 		break;
 	case LUA_TBOOLEAN:
 		type = 2;
@@ -1191,7 +1193,7 @@ ltype(lua_State *L) {
 static void
 typeclosure(lua_State *L) {
 	static const char * typename[] = {
-		"number",	// 1
+		"double",	// 1
 		"boolean",	// 2
 		"table",	// 3
 		"nil",		// 4
@@ -1204,6 +1206,7 @@ typeclosure(lua_State *L) {
 		"minkey",	// 11
 		"maxkey",	// 12
 		"unsupported", // 13
+		"integer",	// 14
 	};
 	int i;
 	int n = sizeof(typename)/sizeof(typename[0]);
