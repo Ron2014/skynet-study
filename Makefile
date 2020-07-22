@@ -15,7 +15,7 @@ LUA_LIB ?= $(LUA_STATICLIB)
 LUA_INC ?= 3rd/lua
 
 $(LUA_STATICLIB) :
-	cd 3rd/lua && $(MAKE) CC='$(CC) -std=gnu99 -DLUA_COMPAT_MATHLIB' $(PLAT)
+	cd 3rd/lua && $(MAKE) CC='$(CC) -std=gnu99 -DLUA_COMPAT_MATHLIB -DLUA_COMPAT_BITLIB' $(PLAT)
 
 # https : turn on TLS_MODULE to add https support
 

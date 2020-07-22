@@ -1,62 +1,60 @@
-local attrdef = require("class.attrdef")
+local attrdef = require "class.attrdef"
+local bson = require "bson"
 
 local itemdoc = {}
 itemdoc.CollectionName = "Item"
 itemdoc.Attr = {
-	sn = {
-		type = "string",
-		default = "0",
+	_id = {
+		type = "objectid",
+		default = nil,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TARGET_DB,
 		attr = "protected",
 	},
-	id = {
-		type = "int",
-		default = 0,
-		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
-	},
 	pid = {
-		type = "int",
+		type = "int64",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	host = {
-		type = "int",
+		type = "int32",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	idx = {
-		type = "int",
+		type = "int32",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
 	num = {
-		type = "int",
+		type = "int32",
 		default = 1,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
-	-- GET_TIME		over > 0			有效期
-	-- USE_TIME		over == 0 / > 0		有效期
-	-- REMAIN_TIME	over == 0 / > 0		剩余时间
+	price = {
+		type = "double",
+		default = 19.26,
+		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
+		attr = "protected",
+	},
+	valid = {
+		type = "boolean",
+		default = true,
+		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
+		attr = "protected",
+	},
 	over = {
-		type = "int",
+		type = "timestamp",
 		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},
-	val = {
-		type = "VecInt",
-		default = {},
-		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
-		attr = "protected",
-	},
-	property = {
-		type = "string",
-		default = "",
+	tm = {
+		type = "date",
+		default = 0,
 		flag = attrdef.FLAG_FROM_DB + attrdef.FLAG_TO_DB,
 		attr = "protected",
 	},

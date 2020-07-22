@@ -591,6 +591,7 @@ end
 	option 结构:
 	{ { key1 = 1}, { key2 = 1 },  unique = true }
 	{ "key1", "key2",  unique = true }
+	{ "key1", {"key2"=-1},  unique = true }
 
 	同时存在数组部分和哈希部分
 	数组部分: 键(支持组合)
@@ -633,7 +634,7 @@ end
 -- 复合键
 -- collection:createIndex { { key1 = 1}, { key2 = 1 },  unique = true }								-- 索引分升序/降序, 按照常用的顺序设定
 -- or collection:createIndex { "key1", "key2",  unique = true }
--- or collection:createIndex( { key1 = 1} , { key2 = -1}, { unique = true, name = "key_name" } )	-- 支持去括号
+-- or collection:createIndex( { key1 = 1} , { key2 = -1 }, { unique = true, name = "key_name" } )	-- 支持去括号
 -- or collection:createIndex( "key1" , "key2", { unique = true, name = "key_name" } )
 -- 单键
 -- or collection:createIndex( { key1 = 1} , { unique = true } )					-- 单键的索引

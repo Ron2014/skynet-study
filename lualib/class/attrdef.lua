@@ -1,9 +1,29 @@
 local attrdef = {}
 
-attrdef.FLAG_TO_DB 		= 0x0001	-- update settor
-attrdef.FLAG_FROM_DB 	= 0x0002	-- selector
-attrdef.FLAG_TARGET_DB  = 0x0004	-- update target
-attrdef.FLAG_CACHED  	= 0x0008	-- hot property
+attrdef.FLAG_TO_DB 		= 0x0001
+attrdef.FLAG_FROM_DB 	= 0x0002
+attrdef.FLAG_TARGET_DB  = 0x0004
+attrdef.FLAG_CACHED  	= 0x0008
+
+function copy(object)
+    local lookup_table = {}
+    local function _copy(object)
+        if type(object) ~= "table" then
+            return object
+        elseif lookup_table[object] then
+            return lookup_table[object]
+        end
+        local new_table = {}
+        lookup_table[object] = new_table
+        for index, value in pairs(object) do
+            new_table[_copy(index)] = _copy(value)
+        end
+        return setmetatable(new_table, getmetatable(object))
+    end
+    return _copy(object)
+end
+
+deepcopy = copy
 
 function class(classname, super)
     local cls

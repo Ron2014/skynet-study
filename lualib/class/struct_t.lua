@@ -12,7 +12,7 @@ function makeAttr(class, attr, collection)
                 selector[k] = 1 -- selector for loading
             end
             
-            if bit32.bind(v.flag, attrdef.FLAG_TARGET_DB) ~= 0 then
+            if bit32.band(v.flag, attrdef.FLAG_TARGET_DB) ~= 0 then
                 table.insert(target, k)   -- target for update
             end
 		end
@@ -58,6 +58,11 @@ end
 local struct = class("struct")
 
 function struct:ctor()
+	for k, v in pairs(self.Attr) do
+		local inner = string.format("%s__", k)
+		self[inner] = deepcopy(v.default)
+    end
+    
     self.markAttr_ = {}
     self.dirtyAttr_ = {}
 end
@@ -76,6 +81,7 @@ function struct:cleardirty(key)
     return ret
 end
 
+-- for db
 function struct:save()
     -- clear all dirty
     for k, _ in pairs(self.dirtyAttr_) do
@@ -87,30 +93,42 @@ function struct:save()
     self.dirtyAttr_ = {}
     
     -- settor from markAttr_
-    local settor = {}
+    local settor = nil
     for k, _ in pairs(self.markAttr_) do
-        settor[k] = rpctype:serialize(self, k)
+        settor = settor or {}
+        settor[k] = rpctype.serialize(self, k)
     end
     self.markAttr_ = {}
     
     -- target
     local target = {}
     for _, k in ipairs(self.Target) do
-		target[k] = rpctype:serialize(self, k)
+		target[k] = rpctype.serialize(self, k)
     end
 
-    -- lua class
-    -- collection_name
-    -- send to db.collector.update(target, settor)
-end
-
-function struct:load(data)
+    return target, settor
 end
 
 function struct:deserialize(data)
+    for k, v in pairs(self.Attr) do
+        local rt = rpctype[v.type]
+        local inner = string.format("%s__", k)
+        local val = data[k]
+        if rt._check and not rt._check(val) then
+            error(string.format("bad argument %s, expected %s, but got %s", k, v.type, type(val)))
+        end
+        self[inner] = rt._deserialize(val)
+    end
 end
 
 function struct:serialize()
+    local data = {}
+    for k, v in pairs(self.Attr) do
+        local rt = rpctype[v.type]
+        local val = self[k](self)
+        data[k] = rt._serialize(val)
+    end
+    return data
 end
 
 return struct

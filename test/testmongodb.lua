@@ -294,6 +294,125 @@ end
 function test_aggregate()
 end
 
+-- 将散列表转换成一条字符串
+local function format_table(t)
+	-- 对散列表的 key 进行升序
+	local index = {}
+	for k in pairs(t) do
+		table.insert(index, k)
+	end
+	table.sort(index, function(a, b) return tostring(a) < tostring(b) end)
+
+	-- 生成 key:value
+	-- 最后1个t, 代表一行 entry 信息
+	local result = {}
+	for _,v in ipairs(index) do
+		table.insert(result, string.format("%s:%s",v,tostring(t[v])))
+	end
+	return table.concat(result,"\t")
+end
+
+function test_item()
+	local Item = require("class.item_t")
+	local db = _create_client()
+	local collection = db[db_name][Item.Collection]
+
+	collection:dropIndex("*")
+	collection:drop()
+
+	-- create
+	local roleId = 1049
+	for i=1,1 do
+		local item = Item.new()
+		-- print("default", format_table(item:serialize()))
+
+		item:pid(roleId)
+		item:host(1)
+		item:idx(i)
+		item:num(1)
+
+		-- print("insert", format_table(item:serialize()))
+		-- local ok, err, ret = collection:safe_insert(item:serialize())
+		local ok, err, ret = collection:safe_insert(item:serialize())
+		print(ok, err)
+		print(format_table(ret))
+	end
+
+	-- retrieve
+	local query = {
+		pid = roleId,
+		num = { ["$gt"] = 0, },
+	}
+
+	local cursor = db[db_name][Item.Collection]:find(query, Item.Selector)
+	local result = {}
+
+	while cursor:hasNext() do
+		local node = cursor:next()
+		local item = Item.new()
+		item:deserialize(node)
+		print(format_table(item:serialize()))
+
+		item:num(10)
+	
+		local query, settor = item:save()
+		if settor then
+			table.insert(result, {query=query, settor=settor})
+		end
+	end
+
+	-- update
+end
+
+function test_cursor_size()
+	local db = _create_client()
+
+	db[db_name].testdb:dropIndex("*")
+	db[db_name].testdb:drop()
+
+	-- 一次性批量插入百万数据, 会失败
+	print("begin", os.clock())
+	local rand = math.random
+	for i=1,1000 do
+		local data = {}
+		for j=1,1000 do
+			local roleId = (i-1)*1000+j
+			local type_ = rand(4)
+			local score = rand(1,1000000)
+			local fighting = rand(1,1000000)
+			table.insert(data, {
+				roleId=roleId,
+				type=type_,
+				score=score,
+				fighting=fighting,
+			})
+			-- table.insert(data, {test_key=1})
+		end
+		db[db_name].testdb:batch_insert(data)
+	end
+	print("end", os.clock())
+
+	print("begin", os.clock())
+	local minFighting = 208
+	local maxFighting = 503
+	local roleId = 1049
+	local type_ = 2
+	local cursor = db[db_name].testdb:find({
+		type = type_,
+		roleId = {["$ne"] = roleId},
+		fighting = {["$gte"] = minFighting, ["$lt"] = maxFighting},
+	})
+	-- local cursor = db[db_name].testdb:find()
+	while cursor:hasNext() do
+		cursor:next()
+		-- print(format_table(node))
+		if cursor.__ptr == nil then
+			print(#cursor.__document)
+		end
+	end
+	print("end", os.clock())
+end
+
 skynet.start(function()
 	-- if username then
 	-- 	print("Test auth")
@@ -303,8 +422,8 @@ skynet.start(function()
 	-- test_insert_without_index()
 	-- print("Test insert index")
 	-- test_insert_with_index()
-	print("Test find and remove")
-	test_find_and_remove()
+	-- print("Test find and remove")
+	-- test_find_and_remove()
 	-- print("Test aggregate")
 	-- test_aggregate()
 	-- print("Test find")
@@ -314,5 +433,9 @@ skynet.start(function()
 	-- test_regex()
 	-- print("Test expire index")
 	-- test_expire_index()
+	print("Test item")
+	test_item()
+	-- print("Test cursor size")
+	-- test_cursor_size()
 	print("mongodb test finish.")
 end)

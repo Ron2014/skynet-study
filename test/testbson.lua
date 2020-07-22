@@ -2,6 +2,40 @@ local bson = require "bson"
 
 local sub = bson.encode_order( "hello", 1, "world", 2 )
 
+function sortpairs(t, inc)
+	local inc = inc
+	if inc==nil then inc=true end
+
+	local arrayt = {}
+	local i=1
+	for k,v in pairs(t) do
+		arrayt[i]={k,v}
+		i=i+1
+	end
+	table.sort( arrayt, function( a, b )
+		local w1, w2 = 0, 0
+		local rate = (inc and 1) or -1
+		if a[1]<b[1] then
+			w1 = w1 + rate
+		end
+		if a[1]>b[1] then
+			w2 = w2 + rate
+		end
+		return w1 > w2
+	end )
+
+	i=0
+	return function()
+		i=i+1
+		local e=arrayt[i]
+		if e then
+			return e[1],e[2]
+		else
+			return nil,nil
+		end
+	end
+end
+
 do
 	-- check decode encode_order
 	local d = bson.decode(sub)
@@ -81,7 +115,7 @@ b = bson.encode {
 print "\n[before replace]"
 t = b:decode()
 
-for k, v in pairs(t) do
+for k, v in sortpairs(t) do
 	print(k,type(v))
 end
 
