@@ -328,12 +328,27 @@ function test_item()
 
 		item:pid(roleId)
 		item:host(1)
-		item:idx(i)
-		item:num(1)
+		item:idx(2)
+		item:num(3)
+
+		item:arr()[100] = 10
+		
+		local itemval = Item.new()
+		itemval:pid(roleId)
+		itemval:host(4)
+		itemval:idx(5)
+		itemval:num(6)
+		item:arritem()[101] = itemval
+
+		local subitem = Item.new()
+		subitem:pid(roleId)
+		subitem:host(7)
+		subitem:idx(8)
+		subitem:num(9)
+		item:subitem(subitem)
 
 		local data = item:serialize()
 		print("create", format_table(data))
-		-- local ok, err, ret = collection:safe_insert(data)
 		local ok, err, ret = collection:safe_insert(data)
 		print(ok, err)
 		print(format_table(ret))
@@ -346,29 +361,52 @@ function test_item()
 	}
 
 	local cursor = collection:find(query, Item.Selector)
-	local result = {}
+
+	local saveItems = {
+		data_ = {},
+		mark = function(self, item)
+			self.data_[item] = true
+		end,
+	}
+	setmetatable(saveItems, {
+		__pairs = function(self)
+			return next, self.data_, nil
+		end,
+	})
 
 	while cursor:hasNext() do
 		local node = cursor:next()
-		local item = Item.new()
+		local item = Item.new(saveItems)
 		item:deserialize(node)
+		item:sn(item)
+		
 		print("retrieve", format_table(item:serialize()))
-
+		
 		item:num(10)
-	
-		local settor, query = item:save()
-		if settor then
-			table.insert(result, {query=query, settor=settor})
-		end
+
+		item:arr()[100] = 11
+		
+		item:arritem()[101]:host(13)
+		item:arritem()[101]:idx(14)
+		item:arritem()[101]:num(15)
+
+		item:subitem():host(24)
+		item:subitem():idx(25)
+		item:subitem():num(26)
 	end
 
 	-- update
-	for _, node in pairs(result) do
-		print("update query", format_table(node.query))
-		print("update settor", format_table(node.settor))
-		local ok, err, ret = collection:safe_update(node.query, {["$set"] = node.settor }, false, false)
-		print(ok, err)
-		print(format_table(ret))
+	local tt = saveItems
+	saveItems = {}
+	for item, _ in pairs(tt) do
+		local settor, query = item:save()
+		if settor then			
+			print("update query", format_table(query))
+			print("update settor", format_table(settor))
+			local ok, err, ret = collection:safe_update(query, {["$set"] = settor }, false, false)
+			print(ok, err)
+			print(format_table(ret))
+		end
 	end
 
 	-- retrieve
@@ -378,6 +416,7 @@ function test_item()
 		local item = Item.new()
 		item:deserialize(node)
 		print("retrieve", format_table(item:serialize()))
+		print(format_table(item:arr().data_))
 	end
 end
 

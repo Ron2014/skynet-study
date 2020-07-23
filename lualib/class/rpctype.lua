@@ -22,20 +22,7 @@ rpctype.deserialize = function(obj, k, val)
     end
 
     local inner = string.format("%s__", k)
-    obj[inner] = rt._deserialize(val)
-end
-
-rpctype.load = function(obj, k, val)
-    local v = obj.Attr[k]
-    assert(v, string.format("%s:%s is not property of %s", k, type(val), obj.class.__cname))
-
-    local rt = rpctype[v.type]
-    if rt._check and not rt._check(val) then
-        error(string.format("bad argument %s, expected %s, but got %s", k, v.type, type(val)))
-    end
-
-    local inner = string.format("%s__", k)
-    obj[inner] = rt._deserialize(val)
+    obj[inner] = rt._deserialize(val, obj, k)
 end
 
 rpctype.objectid = {
@@ -129,10 +116,10 @@ rpctype.timestamp = {
         return val
     end,
     _serialize = function(data)
-        if data == nil then
-            return bson.timestamp(skynet.timestamp())
-        end
         return bson.timestamp(data)
+    end,
+    _default = function()
+        return skynet.timestamp()
     end,
 }
 
@@ -147,34 +134,48 @@ rpctype.date = {
         return val
     end,
     _serialize = function(data)
-        if data == nil then
-            return bson.date(skynet.timestamp())
-        end
         return bson.date(data)
+    end,
+    _default = function()
+        return skynet.timestamp()
     end,
 }
 
 rpctype.item = {
-    _load = function(data)
+    _deserialize = function(data, obj, attr)
         local Item = require("class.item_t")
-        local obj = Item.new()
-        obj:load(data)
-        return obj
-    end,
-
-    _save = function(obj)
-        return obj:save()
-    end,
-
-    _deserialize = function(data)
-        local Item = require("class.item_t")
-        local obj = Item.new()
+        local obj = Item.new(obj, attr)
         obj:deserialize(data)
         return obj
     end,
 
     _serialize = function(obj)
         return obj:serialize()
+    end,
+
+    _default = function(obj, attr)
+        local Item = require("class.item_t")
+        local obj = Item.new(obj, attr)
+        return obj
+    end,
+}
+
+rpctype.array = {
+    _deserialize = function(data, obj, attr)
+        local Array = require("class.array_t")
+        local obj = Array.new(obj, attr)
+        obj:deserialize(data)
+        return obj
+    end,
+
+    _serialize = function(obj)
+        return obj:serialize()
+    end,
+
+    _default = function(obj, attr)
+        local Array = require("class.array_t")
+        local obj = Array.new(obj, attr)
+        return obj
     end,
 }
 
