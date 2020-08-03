@@ -4,6 +4,7 @@ local extern_dbgcmd = {}
 local function init(skynet, export)
 	local internal_info_func
 
+	-- 通过 skynet.info_func 指定 INFO 时需要返回什么信息
 	function skynet.info_func(func)
 		internal_info_func = func
 	end
@@ -19,10 +20,10 @@ local function init(skynet, export)
 		end
 
 		function dbgcmd.GC()
-
 			collectgarbage "collect"
 		end
 
+		-- 借助 skynet.task 实现
 		function dbgcmd.STAT()
 			local stat = {}
 			stat.task = skynet.task()
@@ -45,6 +46,7 @@ local function init(skynet, export)
 		function dbgcmd.UNIQTASK()
 			skynet.ret(skynet.pack(skynet.uniqtask()))
 		end
+		-- 借助 skynet.task 实现
 
 		function dbgcmd.INFO(...)
 			if internal_info_func then

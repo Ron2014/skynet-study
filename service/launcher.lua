@@ -36,6 +36,8 @@ function command.STAT()
 	return list
 end
 
+-- 被外界命令杀掉某个服务
+-- 于是用 skynet.kill 给自己添加1个消息: REMOVE handle
 function command.KILL(_, handle)
 	handle = handle_to_address(handle)
 	skynet.kill(handle)

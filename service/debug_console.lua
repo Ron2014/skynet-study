@@ -66,6 +66,11 @@ local function split_cmdline(cmdline)
 	return split
 end
 
+--[[
+	服务分两类:
+	1. COMMAND		普通:
+	2. COMMANDX		扩展: call debug
+--]]
 local function docmd(cmdline, print, fd)
 	local split = split_cmdline(cmdline)
 	local command = split[1]
@@ -190,14 +195,15 @@ skynet.newservice
 2. COMMAND.log
 
 skynet.call, ".launcher", "lua", "LOGLAUNCH", "snlua", ...
-.launcher 服务的 LOGLAUNCH 方式, 也就是 log 了服务实例句柄
+.launcher 服务的 LOGLAUNCH 方式, 也就多个 log 服务实例句柄的操作
 
 3. COMMAND.snax
 
-snax.newservice	
-
-4. 
+snax.newservice
 ]]
+
+
+-- start service_name 用 skynet.newservice 启动一个新的 lua 服务。
 function COMMAND.start(...)
 	local ok, addr = pcall(skynet.newservice, ...)
 	if ok then
@@ -224,6 +230,7 @@ function COMMAND.log(...)
 	end
 end
 
+-- snax service_name 用 snax.newservice 启动一个新的 snax 服务。
 function COMMAND.snax(...)
 	local ok, s = pcall(snax.newservice, ...)
 	if ok then
@@ -235,7 +242,8 @@ function COMMAND.snax(...)
 end
 
 -- standalone 模式下会启动 SERVICE 单点服务
--- 使用 SERVICE 服务列出所有服务
+-- 使用 SERVICE 服务列出所有唯一 lua 服务
+-- 并显示出请求还不存在的服务被挂起的请求。
 function COMMAND.service()
 	return skynet.call("SERVICE", "lua", "LIST")
 end
@@ -253,30 +261,40 @@ end
 --[[
 	因为所有服务都会通过 launcher 启动
 ]]
+
+-- list 列出所有服务，以及启动服务的命令参数。
 function COMMAND.list()
 	return skynet.call(".launcher", "lua", "LIST")
 end
 
+-- stat 列出所有 lua 服务的消息队列长度，以及被挂起的请求数量，处理的消息总数。
+-- 如果在 Config 里设置 profile 为 true(默认skynet_main.c)，还会报告服务使用的 cpu 时间。
 function COMMAND.stat()
 	return skynet.call(".launcher", "lua", "STAT")
 end
 
+-- mem 让所有 lua 服务汇报自己占用的内存(通过垃圾收集器)。
 function COMMAND.mem()
 	return skynet.call(".launcher", "lua", "MEM")
 end
 
+-- kill address 强制中止一个 lua 服务。
+-- launcher:KILL => launcher:REMOVE
 function COMMAND.kill(address)
 	return skynet.call(".launcher", "lua", "KILL", address)
 end
 
+-- gc 强制让所有 lua 服务都执行一次垃圾回收，并报告回收后的内存。
 function COMMAND.gc()
 	return skynet.call(".launcher", "lua", "GC")
 end
 
+-- exit address 让一个 lua 服务自行退出。
 function COMMAND.exit(address)
 	skynet.send(adjust_address(address), "debug", "EXIT")
 end
 
+-- inject address script 将 script 名字对应的脚本插入到指定服务中运行（通常可用于热更新补丁）。
 function COMMAND.inject(address, filename, ...)
 	address = adjust_address(address)
 	local f = io.open(filename, "rb")
@@ -292,6 +310,7 @@ function COMMAND.inject(address, filename, ...)
 	return output
 end
 
+-- task address 显示一个服务中所有被挂起的请求的调用栈。
 function COMMAND.task(address)
 	address = adjust_address(address)
 	return skynet.call(address,"debug","TASK")
@@ -302,11 +321,14 @@ function COMMAND.uniqtask(address)
 	return skynet.call(address,"debug","UNIQTASK")
 end
 
+-- 显示服务的自定义信息
 function COMMAND.info(address, ...)
 	address = adjust_address(address)
 	return skynet.call(address,"debug","INFO", ...)
 end
 
+-- debug address 针对一个 lua 服务启动内置的单步调试器。
+-- 进入交互模式
 function COMMANDX.debug(cmd)
 	local address = adjust_address(cmd[2])
 	local agent = skynet.newservice "debug_agent"
@@ -345,6 +367,9 @@ function COMMANDX.debug(cmd)
 	end
 end
 
+--[[
+logon/logoff address 记录一个服务所有的输入消息到文件。需要在 Config 里配置 logpath 。
+--]]
 function COMMAND.logon(address)
 	address = adjust_address(address)
 	core.command("LOGON", skynet.address(address))
@@ -355,6 +380,11 @@ function COMMAND.logoff(address)
 	core.command("LOGOFF", skynet.address(address))
 end
 
+-- signal address sig 向服务发送一个信号，sig 默认为 0 。
+-- 当一个服务陷入死循环时，默认信号会打断正在执行的 lua 字节码，并抛出 error 显示调用栈。
+-- 这是针对 endless loop 的 log 的有效调试方法。注：这里的信号并非系统信号。
+-- skynet_module.h: skynet_module_instance_signal
+-- 也就是说, C模块要实现 xxx_signal 接口
 function COMMAND.signal(address, sig)
 	address = skynet.address(adjust_address(address))
 	if sig then
@@ -376,6 +406,7 @@ function COMMAND.cmem()
 	return tmp
 end
 
+-- ping address 检查某个服务是否阻塞
 function COMMAND.ping(address)
 	address = adjust_address(address)
 	local ti = skynet.now()
@@ -400,6 +431,8 @@ function COMMAND.trace(address, proto, flag)
 	skynet.call(address, "debug", "TRACELOG", proto, flag)
 end
 
+-- call address 调用一个服务的lua类型接口，格式为: call address "foo", arg1, ... 
+-- 注意接口名和string型参数必须加引号,且以逗号隔开, address目前支持服务名方式。
 function COMMANDX.call(cmd)
 	local address = adjust_address(cmd[2])
 	local cmdline = assert(cmd[1]:match("%S+%s+%S+%s(.+)") , "need arguments")
@@ -451,6 +484,7 @@ local function convert_stat(info)
 	info.wtime = time(info.wtime)
 end
 
+-- netstat 列出网络连接的概况。
 function COMMAND.netstat()
 	local stat = socket.netstat()
 	for _, info in ipairs(stat) do
