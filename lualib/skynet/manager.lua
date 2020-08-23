@@ -31,6 +31,7 @@ end
 	1. '.'开头。表示是本地的服务，这个可以注册到全局服务实例存储中（handle_storage 本机环境）去
 	2. 没有'.'开头。这种情况是全局的服务，整个服务器集群都可以通过该名称找到唯一的服务，这个名字是 .cslave服务管理的。
 		skynet.harbor库 提供了与 .cslave服务通信的接口
+	不允许':'开头, 即 address 格式
 --]]
 local function globalname(name, handle)
 	local c = string.sub(name,1,1)

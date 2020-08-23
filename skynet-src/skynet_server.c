@@ -59,7 +59,7 @@ struct skynet_context
     FILE *logfile;							// log文件
     uint64_t cpu_cost;  // in microsec      cpu消耗，累计值
     uint64_t cpu_start; // in microsec      上一次消息处理时，进行callback的起始时间
-    char result[32];                        // cmd命令的返回值
+    char result[32];                        // skynet_command命令的返回值
     uint32_t handle;						// 服务实例的句柄（全局唯一）
     int session_id;                         // 消息的ID，是个累加值
     int ref;								// 引用计数
